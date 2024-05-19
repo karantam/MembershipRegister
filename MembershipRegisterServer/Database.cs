@@ -172,6 +172,57 @@ namespace MembershipRegisterServer
         }
 
         /*
+         * AddGroup method adds a new group for a member in the database
+         */
+        public Boolean AddGroup(String memberID, List<KeyValuePair<string, string>> newgroups)
+        {
+            //Boolean exists = false;
+            if (CheckMember(memberID))
+            {
+                for (int i = 0; i < newgroups.Count; i++)
+                {
+                    if (!CheckGroup(memberID, newgroups[i].Key, newgroups[i].Value))
+                    {
+                        dbConnection.Open();
+                        dbTransaction = dbConnection.BeginTransaction();
+                        dbCommand.Transaction = dbTransaction;
+                        try
+                        {
+                            String teamdata = $"insert into teams (memberID,team,position) VALUES('{memberID.Replace("'", "''")}','{newgroups[i].Key.Replace("'", "''")}','{newgroups[i].Value.Replace("'", "''")}')";
+                            dbCommand.CommandText = teamdata;
+                            dbCommand.ExecuteNonQuery();
+                            dbTransaction.Commit();
+                            dbConnection.Close();
+                            Program.Log("Group added");
+                        }
+                        catch (Exception e)
+                        {
+                            Program.Log(e.ToString());
+                            //Program.Log("ERROR: SQLException while creating the member");
+                            dbTransaction.Rollback();
+                            return false;
+                        }
+                        finally
+                        {
+                            dbConnection.Close();
+                        }
+                    }
+                    else
+                    {
+                        Program.Log("Duplicate entry not added into the database");
+                    }
+                }
+                Program.Log("All non duplicate groups added");
+                return true;
+            }
+            else
+            {
+                Program.Log("Member does not exist in the database");
+                return false;
+            }
+        }
+
+        /*
          * GetMember method retrieves all member information from the database.
          */
         public List<Member> GetMember() //throws SQLException
@@ -231,6 +282,34 @@ namespace MembershipRegisterServer
                 dbCommand = dbConnection.CreateCommand();
                 dbCommand.CommandText = memberIDExists;
                 dbReader = dbCommand.ExecuteReader();
+                exists = dbReader.Read();
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+                //Program.Log("SQLException while checking if a memberID exists.");
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return exists;
+        }
+
+        /*
+         * CheckGroup method checks if the given member already has the given group and position combination.
+         */
+        public Boolean CheckGroup(String memberID, String group, String position) //throws SQLException
+        {
+            // selecting entries with the given memberID, team and position
+            String memberIDExists = $"SELECT memberID FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{group.Replace("'", "''")}' AND position = '{position.Replace("'", "''")}'";
+            Boolean exists = false;
+            dbConnection.Open();
+            try
+            {
+                SqliteCommand dbCommandG = dbConnection.CreateCommand();
+                dbCommandG.CommandText = memberIDExists;
+                dbReader = dbCommandG.ExecuteReader();
                 exists = dbReader.Read();
             }
             catch (Exception e)
