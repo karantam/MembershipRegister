@@ -76,8 +76,8 @@ namespace MembershipRegisterServer
         {
             if (null != dbConnection) {
                 // Creating tables in the database.
-                string memberDB = "create table members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate varchar(50), address varchar(50), phone varchar(50), email varchar(50))";
-                string groupDB = "create table teams (id INTEGER PRIMARY KEY AUTOINCREMENT, memberID varchar(50) NOT NULL, team varchar(50) NOT NULL, position varchar(50))";
+                string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate varchar(50), address varchar(50), phone varchar(50), email varchar(50))";
+                string groupDB = "CREATE TABLE teams (id INTEGER PRIMARY KEY AUTOINCREMENT, memberID varchar(50) NOT NULL, team varchar(50) NOT NULL, position varchar(50))";
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
                 dbCommand.Transaction = dbTransaction;
@@ -126,10 +126,9 @@ namespace MembershipRegisterServer
         public Boolean CreateMember(Member member)
         {
             //Boolean exists = false;
-            if (!CheckMember(member.GetMemberID()))
+            if (!MemberExists(member.GetMemberID()))
             {
-                //String memberdata = "insert into members (memberID, firstname,familyname,birthdate,address,phone,email) VALUES('" + member.GetMemberID() + "','" + member.GetFirstname() + "','" + member.GetLasttname() + "','" + member.GetBirthdate() + "','" + member.GetAddress() + "','" + member.GetPhone() + "','" + member.GetEmail() + "')";
-                String memberdata = $"insert into members (memberID,firstname,familyname,birthdate,address,phone,email) VALUES('{member.GetMemberID().Replace("'", "''")}','{member.GetFirstname().Replace("'", "''")}','{member.GetLasttname().Replace("'", "''")}','{member.GetBirthdate().Replace("'", "''")}','{member.GetAddress().Replace("'", "''")}','{member.GetPhone().Replace("'", "''")}','{member.GetEmail().Replace("'", "''")}')";
+                String memberdata = $"INSERT INTO members (memberID,firstname,familyname,birthdate,address,phone,email) VALUES('{member.GetMemberID().Replace("'", "''")}','{member.GetFirstname().Replace("'", "''")}','{member.GetLasttname().Replace("'", "''")}','{member.GetBirthdate().Replace("'", "''")}','{member.GetAddress().Replace("'", "''")}','{member.GetPhone().Replace("'", "''")}','{member.GetEmail().Replace("'", "''")}')";
                 List<KeyValuePair<string, string>> groups = member.GetGroups();
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
@@ -141,7 +140,7 @@ namespace MembershipRegisterServer
                     dbCommand.ExecuteNonQuery();
                     for (int i = 0; i<groups.Count; i++)
                     {
-                        String teamdata = $"insert into teams (memberID,team,position) VALUES('{member.GetMemberID().Replace("'", "''")}','{groups[i].Key.Replace("'", "''")}','{groups[i].Value.Replace("'", "''")}')";
+                        String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{member.GetMemberID().Replace("'", "''")}','{groups[i].Key.Replace("'", "''")}','{groups[i].Value.Replace("'", "''")}')";
                         dbCommand.CommandText = teamdata;
                         dbCommand.ExecuteNonQuery();
                     }
@@ -172,23 +171,65 @@ namespace MembershipRegisterServer
         }
 
         /*
+         * RemoveMember method removes a member from the membees table and all entries related to the member from the teams table
+         */
+        public Boolean RemoveMember(String memberID)
+        {
+            if (MemberExists(memberID))
+            {
+                String memberdata = $"DELETE FROM members WHERE memberID = '{memberID.Replace("'", "''")}'";
+                String groupddata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}'";
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    //dbCommand = dbConnection.CreateCommand();
+                    dbCommand.CommandText = memberdata;
+                    dbCommand.ExecuteNonQuery();
+                    dbCommand.CommandText = groupddata;
+                    dbCommand.ExecuteNonQuery();
+                    dbTransaction.Commit();
+                    Program.Log("Member deleted");
+
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    //Program.Log("ERROR: SQLException while creating the member");
+                    dbTransaction.Rollback();
+                    return false;
+                }
+                finally
+                {
+                    dbConnection.Close();
+                }
+            }
+            else
+            {
+                Program.Log("Member does not exist");
+                return false;
+            }
+        }
+
+        /*
          * AddGroup method adds a new group for a member in the database
          */
         public Boolean AddGroup(String memberID, List<KeyValuePair<string, string>> newgroups)
         {
-            //Boolean exists = false;
-            if (CheckMember(memberID))
+            if (MemberExists(memberID))
             {
                 for (int i = 0; i < newgroups.Count; i++)
                 {
-                    if (!CheckGroup(memberID, newgroups[i].Key, newgroups[i].Value))
+                    if (!GroupExists(memberID, newgroups[i].Key, newgroups[i].Value))
                     {
                         dbConnection.Open();
                         dbTransaction = dbConnection.BeginTransaction();
                         dbCommand.Transaction = dbTransaction;
                         try
                         {
-                            String teamdata = $"insert into teams (memberID,team,position) VALUES('{memberID.Replace("'", "''")}','{newgroups[i].Key.Replace("'", "''")}','{newgroups[i].Value.Replace("'", "''")}')";
+                            String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{memberID.Replace("'", "''")}','{newgroups[i].Key.Replace("'", "''")}','{newgroups[i].Value.Replace("'", "''")}')";
                             dbCommand.CommandText = teamdata;
                             dbCommand.ExecuteNonQuery();
                             dbTransaction.Commit();
@@ -223,11 +264,60 @@ namespace MembershipRegisterServer
         }
 
         /*
+         * RemoveGroup method removes a group from a member in the database
+         */
+        public Boolean RemoveGroup(String memberID, List<KeyValuePair<string, string>> removedgroups)
+        {
+            if (MemberExists(memberID))
+            {
+                for (int i = 0; i < removedgroups.Count; i++)
+                {
+                    if (GroupExists(memberID, removedgroups[i].Key, removedgroups[i].Value))
+                    {
+                        dbConnection.Open();
+                        dbTransaction = dbConnection.BeginTransaction();
+                        dbCommand.Transaction = dbTransaction;
+                        try
+                        {
+                            String teamdata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{removedgroups[i].Key.Replace("'", "''")}' AND position = '{removedgroups[i].Value.Replace("'", "''")}'";
+                            dbCommand.CommandText = teamdata;
+                            dbCommand.ExecuteNonQuery();
+                            dbTransaction.Commit();
+                            dbConnection.Close();
+                            Program.Log("Group deleted");
+                        }
+                        catch (Exception e)
+                        {
+                            Program.Log(e.ToString());
+                            //Program.Log("ERROR: SQLException while creating the member");
+                            dbTransaction.Rollback();
+                            return false;
+                        }
+                        finally
+                        {
+                            dbConnection.Close();
+                        }
+                    }
+                    else
+                    {
+                        Program.Log("Group to be deleted doesn't exist");
+                    }
+                }
+                Program.Log("All given groups deleted");
+                return true;
+            }
+            else
+            {
+                Program.Log("Member does not exist in the database");
+                return false;
+            }
+        }
+
+        /*
          * GetMember method retrieves all member information from the database.
          */
         public List<Member> GetMember() //throws SQLException
         {
-            // retrieves username, password and email for the given user
             String query = "select * from members";
             List<Member> people = new List<Member>();
             dbConnection.Open();
@@ -240,7 +330,7 @@ namespace MembershipRegisterServer
                     {
                         Console.Write($"{dbReader.GetString(i)} ");
                     }
-                    String query2 = $"select team, position from teams WHERE memberID = '{dbReader.GetString(0).Replace("'", "''")}'";
+                    String query2 = $"SELECT team, position FROM teams WHERE memberID = '{dbReader.GetString(0).Replace("'", "''")}'";
                     SqliteCommand dbCommand2 = dbConnection.CreateCommand(); 
                     dbCommand2.CommandText = query2;
                     SqliteDataReader dbReader2 = dbCommand2.ExecuteReader();
@@ -268,9 +358,9 @@ namespace MembershipRegisterServer
         }
 
         /*
-         * CheckMember method checks if the given memberID already exists.
+         * MemberExists method checks if the given memberID already exists.
          */
-        public Boolean CheckMember(String memberID) //throws SQLException
+        public Boolean MemberExists(String memberID) //throws SQLException
         {
             // selecting memberID with the given name from the members table
             //String memberIDExists = "SELECT memberID FROM members WHERE memberID = '" + memberID.Replace("'", "''") + "'";
@@ -297,9 +387,9 @@ namespace MembershipRegisterServer
         }
 
         /*
-         * CheckGroup method checks if the given member already has the given group and position combination.
+         * GroupExists method checks if the given member already has the given group and position combination.
          */
-        public Boolean CheckGroup(String memberID, String group, String position) //throws SQLException
+        public Boolean GroupExists(String memberID, String group, String position) //throws SQLException
         {
             // selecting entries with the given memberID, team and position
             String memberIDExists = $"SELECT memberID FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{group.Replace("'", "''")}' AND position = '{position.Replace("'", "''")}'";
