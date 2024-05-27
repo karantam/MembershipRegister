@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -128,7 +129,8 @@ namespace MembershipRegisterServer
             //Boolean exists = false;
             if (!MemberExists(member.GetMemberID()))
             {
-                String memberdata = $"INSERT INTO members (memberID,firstname,familyname,birthdate,address,phone,email) VALUES('{member.GetMemberID().Replace("'", "''")}','{member.GetFirstname().Replace("'", "''")}','{member.GetLasttname().Replace("'", "''")}','{member.GetBirthdate().Replace("'", "''")}','{member.GetAddress().Replace("'", "''")}','{member.GetPhone().Replace("'", "''")}','{member.GetEmail().Replace("'", "''")}')";
+                //String memberdata = $"INSERT INTO members (memberID,firstname,familyname,birthdate,address,phone,email) VALUES('{member.GetMemberID().Replace("'", "''")}','{member.GetFirstname().Replace("'", "''")}','{member.GetLasttname().Replace("'", "''")}','{member.GetBirthdate().Replace("'", "''")}','{member.GetAddress().Replace("'", "''")}','{member.GetPhone().Replace("'", "''")}','{member.GetEmail().Replace("'", "''")}')";
+                String memberdata = $"INSERT INTO members (memberID, firstname, familyname, birthdate, address, phone, email) VALUES($MemberID, $Firstname, $Lasttname, $Birthdate, $Address, $Phone, $Email)";
                 List<KeyValuePair<string, string>> groups = member.GetGroups();
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
@@ -137,11 +139,24 @@ namespace MembershipRegisterServer
                 {
                     //dbCommand = dbConnection.CreateCommand();
                     dbCommand.CommandText = memberdata;
+                    dbCommand.Parameters.Clear();
+                    dbCommand.Parameters.AddWithValue("$MemberID", member.GetMemberID());
+                    dbCommand.Parameters.AddWithValue("$Firstname", member.GetFirstname());
+                    dbCommand.Parameters.AddWithValue("$Lasttname", member.GetLasttname());
+                    dbCommand.Parameters.AddWithValue("$Birthdate", member.GetBirthdate());
+                    dbCommand.Parameters.AddWithValue("$Address", member.GetAddress());
+                    dbCommand.Parameters.AddWithValue("$Phone", member.GetPhone());
+                    dbCommand.Parameters.AddWithValue("$Email", member.GetEmail());
                     dbCommand.ExecuteNonQuery();
                     for (int i = 0; i<groups.Count; i++)
                     {
-                        String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{member.GetMemberID().Replace("'", "''")}','{groups[i].Key.Replace("'", "''")}','{groups[i].Value.Replace("'", "''")}')";
+                        //String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{member.GetMemberID().Replace("'", "''")}','{groups[i].Key.Replace("'", "''")}','{groups[i].Value.Replace("'", "''")}')";
+                        String teamdata = $"INSERT INTO teams (memberID, team, position) VALUES($ID, $Team, $Position)";
                         dbCommand.CommandText = teamdata;
+                        dbCommand.Parameters.Clear();
+                        dbCommand.Parameters.AddWithValue("$ID", member.GetMemberID());
+                        dbCommand.Parameters.AddWithValue("$Team", groups[i].Key);
+                        dbCommand.Parameters.AddWithValue("$Position", groups[i].Value);
                         dbCommand.ExecuteNonQuery();
                     }
                     dbTransaction.Commit();
@@ -177,8 +192,10 @@ namespace MembershipRegisterServer
         {
             if (MemberExists(memberID))
             {
-                String memberdata = $"DELETE FROM members WHERE memberID = '{memberID.Replace("'", "''")}'";
-                String groupddata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}'";
+                //String memberdata = $"DELETE FROM members WHERE memberID = '{memberID.Replace("'", "''")}'";
+                String memberdata = $"DELETE FROM members WHERE memberID = $ID";
+                //String groupddata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}'";
+                String groupddata = $"DELETE FROM teams WHERE memberID = $ID";
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
                 dbCommand.Transaction = dbTransaction;
@@ -186,6 +203,8 @@ namespace MembershipRegisterServer
                 {
                     //dbCommand = dbConnection.CreateCommand();
                     dbCommand.CommandText = memberdata;
+                    dbCommand.Parameters.Clear();
+                    dbCommand.Parameters.AddWithValue("$ID", memberID);
                     dbCommand.ExecuteNonQuery();
                     dbCommand.CommandText = groupddata;
                     dbCommand.ExecuteNonQuery();
@@ -229,8 +248,13 @@ namespace MembershipRegisterServer
                         dbCommand.Transaction = dbTransaction;
                         try
                         {
-                            String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{memberID.Replace("'", "''")}','{newgroups[i].Key.Replace("'", "''")}','{newgroups[i].Value.Replace("'", "''")}')";
+                            //String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{memberID.Replace("'", "''")}','{newgroups[i].Key.Replace("'", "''")}','{newgroups[i].Value.Replace("'", "''")}')";
+                            String teamdata = $"INSERT INTO teams (memberID, team, position) VALUES($ID ,$Team ,$Position )";
                             dbCommand.CommandText = teamdata;
+                            dbCommand.Parameters.Clear();
+                            dbCommand.Parameters.AddWithValue("$ID", memberID);
+                            dbCommand.Parameters.AddWithValue("$Team", newgroups[i].Key);
+                            dbCommand.Parameters.AddWithValue("$Position", newgroups[i].Value);
                             dbCommand.ExecuteNonQuery();
                             dbTransaction.Commit();
                             dbConnection.Close();
@@ -279,8 +303,13 @@ namespace MembershipRegisterServer
                         dbCommand.Transaction = dbTransaction;
                         try
                         {
-                            String teamdata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{removedgroups[i].Key.Replace("'", "''")}' AND position = '{removedgroups[i].Value.Replace("'", "''")}'";
+                            //String teamdata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{removedgroups[i].Key.Replace("'", "''")}' AND position = '{removedgroups[i].Value.Replace("'", "''")}'";
+                            String teamdata = $"DELETE FROM teams WHERE memberID = $ID AND team = $Team AND position = $Position";
                             dbCommand.CommandText = teamdata;
+                            dbCommand.Parameters.Clear();
+                            dbCommand.Parameters.AddWithValue("$ID", memberID);
+                            dbCommand.Parameters.AddWithValue("$Team", removedgroups[i].Key);
+                            dbCommand.Parameters.AddWithValue("$Position", removedgroups[i].Value);
                             dbCommand.ExecuteNonQuery();
                             dbTransaction.Commit();
                             dbConnection.Close();
@@ -330,9 +359,12 @@ namespace MembershipRegisterServer
                     {
                         Console.Write($"{dbReader.GetString(i)} ");
                     }
-                    String query2 = $"SELECT team, position FROM teams WHERE memberID = '{dbReader.GetString(0).Replace("'", "''")}'";
+                    //String query2 = $"SELECT team, position FROM teams WHERE memberID = '{dbReader.GetString(0).Replace("'", "''")}'";
+                    String query2 = $"SELECT team, position FROM teams WHERE memberID = $ID";
                     SqliteCommand dbCommand2 = dbConnection.CreateCommand(); 
                     dbCommand2.CommandText = query2;
+                    dbCommand2.Parameters.Clear();
+                    dbCommand2.Parameters.AddWithValue("$ID", dbReader.GetString(0));
                     SqliteDataReader dbReader2 = dbCommand2.ExecuteReader();
                     List<KeyValuePair<string, string>> teams = new List<KeyValuePair<string, string>>();
                     while (dbReader2.Read())
@@ -363,14 +395,16 @@ namespace MembershipRegisterServer
         public Boolean MemberExists(String memberID) //throws SQLException
         {
             // selecting memberID with the given name from the members table
-            //String memberIDExists = "SELECT memberID FROM members WHERE memberID = '" + memberID.Replace("'", "''") + "'";
-            String memberIDExists = $"SELECT memberID FROM members WHERE memberID = '{memberID.Replace("'", "''")}'";
+            //String memberIDExists = $"SELECT memberID FROM members WHERE memberID = '{memberID.Replace("'", "''")}'";
+            String memberIDExists = $"SELECT memberID FROM members WHERE memberID = $ID";
             Boolean exists = false;
             dbConnection.Open();
             try
             {
                 dbCommand = dbConnection.CreateCommand();
                 dbCommand.CommandText = memberIDExists;
+                dbCommand.Parameters.Clear();
+                dbCommand.Parameters.AddWithValue("$ID", memberID);
                 dbReader = dbCommand.ExecuteReader();
                 exists = dbReader.Read();
             }
@@ -392,13 +426,18 @@ namespace MembershipRegisterServer
         public Boolean GroupExists(String memberID, String group, String position) //throws SQLException
         {
             // selecting entries with the given memberID, team and position
-            String memberIDExists = $"SELECT memberID FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{group.Replace("'", "''")}' AND position = '{position.Replace("'", "''")}'";
+            //String memberIDExists = $"SELECT memberID FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{group.Replace("'", "''")}' AND position = '{position.Replace("'", "''")}'";
+            String memberIDExists = $"SELECT memberID FROM teams WHERE memberID = $ID AND team = $Group AND position = $Position";
             Boolean exists = false;
             dbConnection.Open();
             try
             {
                 SqliteCommand dbCommandG = dbConnection.CreateCommand();
                 dbCommandG.CommandText = memberIDExists;
+                dbCommandG.Parameters.Clear();
+                dbCommandG.Parameters.AddWithValue("$ID", memberID);
+                dbCommandG.Parameters.AddWithValue("$Group", group);
+                dbCommandG.Parameters.AddWithValue("$Position", position);
                 dbReader = dbCommandG.ExecuteReader();
                 exists = dbReader.Read();
             }
