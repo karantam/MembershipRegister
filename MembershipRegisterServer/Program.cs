@@ -32,6 +32,10 @@
             Database.Instance.GetMember();
             Database.Instance.RemoveMember("a'aaaaaaaaa");
             Database.Instance.GetMember();
+            Member member2edited = new Member("qq'ooo", "Jussi", "Meri", DateTime.Now.ToShortDateString(), "Tie 24", "63000", "email2@email2.com", teams2);
+            Database.Instance.EditMember("qq'qqqqqqqq", member2edited);
+            Database.Instance.EditGroup("qq'ooo", teams2[0], teams[0]);
+            Database.Instance.GetMember();
             Database.Instance.CloseDB();
 
         }

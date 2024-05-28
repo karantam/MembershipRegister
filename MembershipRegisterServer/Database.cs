@@ -5,6 +5,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
@@ -90,7 +91,7 @@ namespace MembershipRegisterServer
                     dbCommand.ExecuteNonQuery();
                     Program.Log("DB successfully created");
                     dbTransaction.Commit();
-                    dbConnection.Close();
+                    //dbConnection.Close();
                     return true;
                 } catch (Exception e)
                 {
@@ -186,7 +187,7 @@ namespace MembershipRegisterServer
         }
 
         /*
-         * RemoveMember method removes a member from the membees table and all entries related to the member from the teams table
+         * RemoveMember method removes a member from the members table and all entries related to the member from the teams table
          */
         public Boolean RemoveMember(String memberID)
         {
@@ -233,6 +234,69 @@ namespace MembershipRegisterServer
         }
 
         /*
+         * EditMember method changes a members data in the members table and updats the associated member ID's in the teams table
+         */
+        public Boolean EditMember(String oldID, Member newmember)
+        {
+            if (MemberExists(oldID))
+            {
+                if (!MemberExists(newmember.GetMemberID()))
+                {
+                    dbConnection.Open();
+                    dbTransaction = dbConnection.BeginTransaction();
+                    dbCommand.Transaction = dbTransaction;
+                    try
+                    {
+                        String memberdata = $"UPDATE members SET memberID = $MemberID, firstname = $Firstname, familyname = $Lasttname, birthdate = $Birthdate, address = $Address, phone = $Phone, email = $Email WHERE memberID = $OldID";
+                        dbCommand.CommandText = memberdata;
+                        dbCommand.Parameters.Clear();
+                        dbCommand.Parameters.AddWithValue("$MemberID", newmember.GetMemberID());
+                        dbCommand.Parameters.AddWithValue("$Firstname", newmember.GetFirstname());
+                        dbCommand.Parameters.AddWithValue("$Lasttname", newmember.GetLasttname());
+                        dbCommand.Parameters.AddWithValue("$Birthdate", newmember.GetBirthdate());
+                        dbCommand.Parameters.AddWithValue("$Address", newmember.GetAddress());
+                        dbCommand.Parameters.AddWithValue("$Phone", newmember.GetPhone());
+                        dbCommand.Parameters.AddWithValue("$Email", newmember.GetEmail());
+                        dbCommand.Parameters.AddWithValue("$OldID", oldID);
+                        dbCommand.ExecuteNonQuery();
+
+                        String groupdata = $"UPDATE teams SET memberID = $MemberID WHERE memberID = $OldID";
+                        dbCommand.CommandText = groupdata;
+                        //dbCommand.Parameters.Clear();
+                        dbCommand.ExecuteNonQuery();
+
+                        dbTransaction.Commit();
+                        Program.Log("Member edited");
+
+                        return true;
+                    }
+                    catch (Exception e)
+                    {
+                        Program.Log(e.ToString());
+                        //Program.Log("ERROR: SQLException while editing a member");
+                        dbTransaction.Rollback();
+                        return false;
+                    }
+                    finally
+                    {
+                        dbConnection.Close();
+                    }
+                }
+                else
+                {
+                    Program.Log("New MemberID is already in use");
+                    return false;
+                }
+            }
+            else
+            {
+                Program.Log("Member does not exist in the database");
+                return false;
+            }
+        }
+
+
+        /*
          * AddGroup method adds a new group for a member in the database
          */
         public Boolean AddGroup(String memberID, List<KeyValuePair<string, string>> newgroups)
@@ -257,7 +321,7 @@ namespace MembershipRegisterServer
                             dbCommand.Parameters.AddWithValue("$Position", newgroups[i].Value);
                             dbCommand.ExecuteNonQuery();
                             dbTransaction.Commit();
-                            dbConnection.Close();
+                            //dbConnection.Close();
                             Program.Log("Group added");
                         }
                         catch (Exception e)
@@ -312,7 +376,7 @@ namespace MembershipRegisterServer
                             dbCommand.Parameters.AddWithValue("$Position", removedgroups[i].Value);
                             dbCommand.ExecuteNonQuery();
                             dbTransaction.Commit();
-                            dbConnection.Close();
+                            //dbConnection.Close();
                             Program.Log("Group deleted");
                         }
                         catch (Exception e)
@@ -338,6 +402,52 @@ namespace MembershipRegisterServer
             else
             {
                 Program.Log("Member does not exist in the database");
+                return false;
+            }
+        }
+
+        /*
+         * EditGroup method modifies an entry in the teams table
+         */
+        public Boolean EditGroup(String ID, KeyValuePair<string, string> oldgroup, KeyValuePair<string, string> newgroup)
+        {
+            if (GroupExists(ID, oldgroup.Key, oldgroup.Value))
+            {
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    String teamdata = $"UPDATE teams SET Team = $NewTeam, Position = $NewPosition WHERE memberID = $ID AND team = $OldTeam AND position = $OldPosition";
+                    dbCommand.CommandText = teamdata;
+                    dbCommand.Parameters.Clear();
+                    dbCommand.Parameters.AddWithValue("$NewTeam", newgroup.Key);
+                    dbCommand.Parameters.AddWithValue("$NewPosition", newgroup.Value);
+                    dbCommand.Parameters.AddWithValue("$ID", ID);
+                    dbCommand.Parameters.AddWithValue("$OldTeam", oldgroup.Key);
+                    dbCommand.Parameters.AddWithValue("$OldPosition", oldgroup.Value);
+                    dbCommand.ExecuteNonQuery();
+                    dbTransaction.Commit();
+                    //dbConnection.Close();
+                    Program.Log("Group edited");
+
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    //Program.Log("ERROR: SQLException while editing a member");
+                    dbTransaction.Rollback();
+                    return false;
+                }
+                finally
+                {
+                    dbConnection.Close();
+                }
+            }
+            else
+            {
+                Program.Log("Group does not exist in the database");
                 return false;
             }
         }
