@@ -1,10 +1,56 @@
-﻿namespace MembershipRegisterServer
+﻿using System.Net;
+
+namespace MembershipRegisterServer
 {
     internal class Program
     {
         private static void Main(string[] args)
         {
-            Log("Launching Chatserver...");
+            Log("Launching Server...");
+
+            
+            HttpListener listener = new HttpListener();
+            listener.Prefixes.Add("http://localhost:8001/");
+
+            HandlerChooser chooser = new HandlerChooser();
+
+            listener.Start();
+            Boolean running = true;
+
+            //HttpListenerContext context = listener.GetContext();
+            //chooser.HandleContext(context);
+
+            //HttpListenerRequest request = context.Request;
+            //HttpListenerResponse response = context.Response;
+            Task.Factory.StartNew(() => Listen(listener, chooser));
+            try
+            {
+                while (running)
+                {
+                    String shutdown = Console.ReadLine();
+                    if (shutdown.Equals("/quit"))
+                    {
+                        //Setting running to false and waiting 3 second so ongoing requests can finish before closing the HttpListener
+                        running = false;
+                        Thread.Sleep(3000);
+                    }
+                    else
+                    {
+                        Log("Type /quit to shut down the server");
+                    }
+                }
+            }
+            finally
+            {
+                listener.Stop();
+                //listener.Close();
+                Log("Server has been shut down");
+            }
+            
+
+            /*
+             * Database tests
+             *
             Database.Instance.Open("Dataa.db");
             List<KeyValuePair<string, string>> teams = new List<KeyValuePair<string, string>>() {
                 new KeyValuePair<string, string>("hallitus", "pomo"),
@@ -38,6 +84,8 @@
             Database.Instance.GetMember();
             Database.Instance.CloseDB();
 
+             */
+
         }
 
         /*
@@ -46,6 +94,21 @@
         public static void Log(string message)
         {
             Console.WriteLine(DateTime.Now + " " + message);
+        }
+
+        public static void Listen(HttpListener listener, HandlerChooser chooser) {
+            try
+            {
+                while (listener.IsListening)
+                {
+                    Task<HttpListenerContext> context = listener.GetContextAsync();
+                    Task.Factory.StartNew(() => chooser.HandleContext(context.Result));
+                }
+            }
+            catch (Exception e)
+            {
+                //Log(e.ToString());
+            }
         }
     }
 }
