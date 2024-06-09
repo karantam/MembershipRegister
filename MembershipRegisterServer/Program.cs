@@ -8,11 +8,13 @@ namespace MembershipRegisterServer
         {
             Log("Launching Server...");
 
-            
+            Database.Instance.Open("Dataa.db");
+
             HttpListener listener = new HttpListener();
             listener.Prefixes.Add("http://localhost:8001/");
 
             HandlerChooser chooser = new HandlerChooser();
+            chooser.AddHandler(new MemberRequestHandler());
 
             listener.Start();
             Boolean running = true;
@@ -22,7 +24,8 @@ namespace MembershipRegisterServer
 
             //HttpListenerRequest request = context.Request;
             //HttpListenerResponse response = context.Response;
-            Task.Factory.StartNew(() => Listen(listener, chooser));
+            Task.Factory.StartNew(() => ListenAsync(listener, chooser));
+            Log("Server is online");
             try
             {
                 while (running)
@@ -42,8 +45,9 @@ namespace MembershipRegisterServer
             }
             finally
             {
-                listener.Stop();
-                //listener.Close();
+                //listener.Stop();
+                listener.Close();
+                Database.Instance.CloseDB();
                 Log("Server has been shut down");
             }
             
@@ -96,18 +100,19 @@ namespace MembershipRegisterServer
             Console.WriteLine(DateTime.Now + " " + message);
         }
 
-        public static void Listen(HttpListener listener, HandlerChooser chooser) {
+        public static async void ListenAsync(HttpListener listener, HandlerChooser chooser) {
             try
             {
                 while (listener.IsListening)
                 {
-                    Task<HttpListenerContext> context = listener.GetContextAsync();
-                    Task.Factory.StartNew(() => chooser.HandleContext(context.Result));
+                    //Task<HttpListenerContext> context = listener.GetContextAsync();
+                    HttpListenerContext context = await listener.GetContextAsync();
+                    _ = Task.Factory.StartNew(() => chooser.HandleContext(context));
                 }
             }
             catch (Exception e)
             {
-                //Log(e.ToString());
+                Log(e.ToString());
             }
         }
     }

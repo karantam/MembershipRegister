@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 namespace MembershipRegisterServer
@@ -23,6 +24,26 @@ namespace MembershipRegisterServer
             this.phone = phonepar;
             this.email = emailpar;
             this.groups = groupspar;
+        }
+
+        public JsonObject ToJsonObject()
+        {
+            JsonObject json = new JsonObject();
+
+            json.Add("id", this.memberID);
+            json.Add("firstname", this.firstname);
+            json.Add("lastname", this.lastname);
+            json.Add("birthdate", this.birthdate);
+            json.Add("address", this.address);
+            json.Add("phone", this.phone);
+            json.Add("email", this.email);
+            for (int i = 0; i< this.groups.Count; i++)
+            {
+                json.Add($"team:{i}", this.groups[i].Key);
+                json.Add($"position:{i}", this.groups[i].Value);
+            }
+
+            return json;
         }
 
         // Get methods for the Member object

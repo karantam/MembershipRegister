@@ -5,6 +5,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -125,8 +126,12 @@ namespace MembershipRegisterServer
         /*
          * CreateMember method saves a new member into the database
          */
-        public Boolean CreateMember(Member member)
+        public String[] CreateMember(Member member)
         {
+            string[] status = new string[2];
+            int code = (int)HttpStatusCode.OK;
+            string statusMessage = "";
+
             //Boolean exists = false;
             if (!MemberExists(member.GetMemberID()))
             {
@@ -164,14 +169,21 @@ namespace MembershipRegisterServer
                     Program.Log("Member created");
 
                     //exists = true;
-                    return true;
+
+                    code = 200;
+                    statusMessage = "Member created";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
                 }
                 catch (Exception e)
                 {
                     Program.Log(e.ToString());
                     //Program.Log("ERROR: SQLException while creating the member");
                     dbTransaction.Rollback();
-                    return false;
+                    code = 400;
+                    statusMessage = "An error occurred while trying to add a Member";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
                 }
                 finally
                 {
@@ -181,9 +193,13 @@ namespace MembershipRegisterServer
             else
             {
                 Program.Log("Member creation failed. MemberID already in use");
-                return false;
+                code = 400;
+                statusMessage = "MemberID already in use";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
             }
             //return exists;
+            return status;
         }
 
         /*
@@ -455,7 +471,7 @@ namespace MembershipRegisterServer
         /*
          * GetMember method retrieves all member information from the database.
          */
-        public List<Member> GetMember() //throws SQLException
+        public List<Member> GetMembers() //throws SQLException
         {
             String query = "select * from members";
             List<Member> people = new List<Member>();
