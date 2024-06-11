@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Microsoft.VisualBasic;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -73,6 +74,7 @@ namespace MembershipRegisterServer
             HttpListenerResponse response = context.Response;
             int code = (int)HttpStatusCode.OK;
             string statusMessage = "";
+            int j = 0;
             if (request.ContentType == null)
             {
                 code = 400;
@@ -84,37 +86,85 @@ namespace MembershipRegisterServer
                 string body = reader.ReadToEnd();
                 request.InputStream.Close();
                 reader.Close();
-                string jsonMember = JsonSerializer.Serialize(body);
                 Program.Log(body);
-                //Program.Log(jsonMember);
-                JObject jObjMember = JObject.Parse(body);
-                // Creating a member object from the user data
-                string id = (string)jObjMember.SelectToken("id");
-                string firstname = (string)jObjMember.SelectToken("firstname");
-                string lastname = (string)jObjMember.SelectToken("lastname");
-                string birthdate = (string)jObjMember.SelectToken("birthdate");
-                string address = (string)jObjMember.SelectToken("address");
-                string phone = (string)jObjMember.SelectToken("phone");
-                string email = (string)jObjMember.SelectToken("email");
-                List<KeyValuePair<string, string>> groups = new List<KeyValuePair<string, string>>();
-                for (int i = 0; i > -1; i++)
+                try
                 {
-                    Program.Log($"{i}");
-                    if (jObjMember.TryGetValue($"team:{i}", out JToken Teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken Positiontoken))
+                    JObject jObjMember = JObject.Parse(body);
+
+                    // Creating a member object from the user data
+                    if (jObjMember.TryGetValue("id", out JToken? idtoken) && jObjMember.TryGetValue("firstname", out JToken? firstnametoken) && jObjMember.TryGetValue("lastname", out JToken? lastnametoken)
+                        && jObjMember.TryGetValue("birthdate", out JToken? birthdatetoken) && jObjMember.TryGetValue("address", out JToken? addresstoken) && jObjMember.TryGetValue("phone", out JToken? phonetoken)
+                        && jObjMember.TryGetValue("email", out JToken? emailtoken))
                     {
-                        groups.Add(new KeyValuePair<string, string>((string)Teamtoken, (string)Positiontoken));
+                        if (idtoken != null && firstnametoken != null && lastnametoken != null && birthdatetoken != null && addresstoken != null && phonetoken != null && emailtoken != null)
+                        {
+                            string id = idtoken.ToString();
+                            string firstname = firstnametoken.ToString();
+                            string lastname = lastnametoken.ToString();
+                            string birthdate = birthdatetoken.ToString();
+                            string address = addresstoken.ToString();
+                            string phone = phonetoken.ToString();
+                            string email = emailtoken.ToString();
+                            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname) || string.IsNullOrWhiteSpace(birthdate) ||
+                                string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(email))
+                            {
+                                code = 400;
+                                statusMessage = "Members values can't be empty";
+                            }
+                            else
+                            {
+                                List<KeyValuePair<string, string>> groups = new List<KeyValuePair<string, string>>();
+                                for (int i = 0; i > -1; i++)
+                                {
+                                    if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
+                                    {
+                                        if (teamtoken != null && positiontoken != null)
+                                        {
+                                            string team = teamtoken.ToString();
+                                            string position = positiontoken.ToString();
+                                            if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
+                                            {
+                                                j++;
+                                            }
+                                            else
+                                            {
+
+                                                groups.Add(new KeyValuePair<string, string>(team, position));
+                                            }
+                                        }
+                                        else
+                                        {
+                                            j++;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        i = -2;
+                                    }
+                                }
+                                Member member = new Member(id, firstname, lastname, birthdate, address, phone, email, groups);
+                                status = Database.Instance.CreateMember(member);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "Members values can't be null";
+                        }
                     }
                     else
                     {
-                        i = -2;
+                        code = 400;
+                        statusMessage = "No valid member JSON in request body";
                     }
                 }
-                Member member = new Member(id,firstname, lastname, birthdate, address, phone, email, groups);
-                status = Database.Instance.CreateMember(member);
-                code = int.Parse(status[0]);
-                statusMessage = status[1];
-
-
+                catch(Exception ex)
+                {
+                    code = 400;
+                    statusMessage = "Request body was not in proper JSON format";
+                }
             }
             else
             {
@@ -124,8 +174,19 @@ namespace MembershipRegisterServer
 
             if (code < 400)
             {
-                response.StatusCode = code;
-                response.Close();
+                if (j == 0)
+                {
+                    response.StatusCode = code;
+                    response.Close();
+                }
+                else
+                {
+                    statusMessage = $"Member created, but {j} groups were not created as they contained empty/null values";
+                    response.StatusCode = code;
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(statusMessage);
+                    response.OutputStream.Write(messageBytes, 0, messageBytes.Length);
+                    response.Close();
+                }
             }
 
             status[0] = code.ToString();
