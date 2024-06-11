@@ -19,9 +19,9 @@ namespace MembershipRegisterServer
         {
             HttpListenerResponse response = context.Response;
             HttpListenerRequest request = context.Request;
-            string[] status = new string[2];
-            int code = (int)HttpStatusCode.OK;
-            string message = "";
+            string[] status;
+            int code;
+            string message;
 
             if (request.HttpMethod == "POST")
             {
@@ -72,8 +72,8 @@ namespace MembershipRegisterServer
             string[] status = new string[2];
             HttpListenerRequest request = context.Request;
             HttpListenerResponse response = context.Response;
-            int code = (int)HttpStatusCode.OK;
-            string statusMessage = "";
+            int code;
+            string statusMessage;
             int j = 0;
             if (request.ContentType == null)
             {
@@ -82,7 +82,7 @@ namespace MembershipRegisterServer
             }
             else if (request.ContentType == "application/json")
             {
-                StreamReader reader = new StreamReader(request.InputStream, Encoding.UTF8);
+                StreamReader reader = new(request.InputStream, Encoding.UTF8);
                 string body = reader.ReadToEnd();
                 request.InputStream.Close();
                 reader.Close();
@@ -113,7 +113,7 @@ namespace MembershipRegisterServer
                             }
                             else
                             {
-                                List<KeyValuePair<string, string>> groups = new List<KeyValuePair<string, string>>();
+                                List<KeyValuePair<string, string>> groups = new();
                                 for (int i = 0; i > -1; i++)
                                 {
                                     if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
@@ -142,7 +142,7 @@ namespace MembershipRegisterServer
                                         i = -2;
                                     }
                                 }
-                                Member member = new Member(id, firstname, lastname, birthdate, address, phone, email, groups);
+                                Member member = new(id, firstname, lastname, birthdate, address, phone, email, groups);
                                 status = Database.Instance.CreateMember(member);
                                 code = int.Parse(status[0]);
                                 statusMessage = status[1];
@@ -160,8 +160,9 @@ namespace MembershipRegisterServer
                         statusMessage = "No valid member JSON in request body";
                     }
                 }
-                catch(Exception ex)
+                catch(Exception e)
                 {
+                    Program.Log(e.ToString());
                     code = 400;
                     statusMessage = "Request body was not in proper JSON format";
                 }
@@ -200,14 +201,13 @@ namespace MembershipRegisterServer
         public string[] HandleGETRequest(HttpListenerContext context)
         {
             string[] status = new string[2];
-            HttpListenerRequest request = context.Request;
             HttpListenerResponse response = context.Response;
             int code = (int)HttpStatusCode.OK;
             string statusMessage = "";
 
-            List<Member> people = new List<Member>();
+            List<Member> people;
             people = Database.Instance.GetMembers();
-            JsonArray responseMessage = new JsonArray();
+            JsonArray responseMessage = new();
             foreach (Member member in people)
             {
                 responseMessage.Add(member.ToJsonObject());

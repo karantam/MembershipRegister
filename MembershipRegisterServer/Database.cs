@@ -57,13 +57,11 @@ namespace MembershipRegisterServer
          */
         public void Open(string dbName) //throws SQLException
         {
-            FileInfo dbFile = new FileInfo(dbName);
+            FileInfo dbFile = new(dbName);
             Boolean exists = dbFile.Exists;
             String path = dbFile.FullName;
-            //String database = "jdbc:sqlite:" + path;
             string database = @"Data Source=" + path;
             dbConnection = new SqliteConnection(database);
-            //dbConnection.Open();
             dbCommand = new SqliteCommand("", dbConnection);
             if (!exists) {
                 InitializeDatabase();
@@ -75,7 +73,7 @@ namespace MembershipRegisterServer
         /*
          * initializeDatabase method creates the database
          */
-        private Boolean InitializeDatabase() //throws SqlException
+        private Boolean InitializeDatabase()
         {
             if (null != dbConnection) {
                 // Creating tables in the database.
@@ -85,19 +83,16 @@ namespace MembershipRegisterServer
                 dbTransaction = dbConnection.BeginTransaction();
                 dbCommand.Transaction = dbTransaction;
                 try {
-                    //dbCommand = dbConnection.CreateCommand();
                     dbCommand.CommandText = memberDB;
                     dbCommand.ExecuteNonQuery();
                     dbCommand.CommandText = groupDB;
                     dbCommand.ExecuteNonQuery();
                     Program.Log("DB successfully created");
                     dbTransaction.Commit();
-                    //dbConnection.Close();
                     return true;
                 } catch (Exception e)
                 {
                     Program.Log(e.ToString());
-                    //Program.Log("ERROR: SQLException while creating the database");
                     dbTransaction.Rollback();
                     
                 }
@@ -119,7 +114,8 @@ namespace MembershipRegisterServer
             if (null != dbConnection) {
                 dbConnection.Close();
                 Program.Log("closing database connection");
-                dbConnection = null;
+                dbConnection.Dispose();
+
             }
         }
 
@@ -129,13 +125,11 @@ namespace MembershipRegisterServer
         public String[] CreateMember(Member member)
         {
             string[] status = new string[2];
-            int code = (int)HttpStatusCode.OK;
-            string statusMessage = "";
+            int code;
+            string statusMessage;
 
-            //Boolean exists = false;
             if (!MemberExists(member.GetMemberID()))
             {
-                //String memberdata = $"INSERT INTO members (memberID,firstname,familyname,birthdate,address,phone,email) VALUES('{member.GetMemberID().Replace("'", "''")}','{member.GetFirstname().Replace("'", "''")}','{member.GetLasttname().Replace("'", "''")}','{member.GetBirthdate().Replace("'", "''")}','{member.GetAddress().Replace("'", "''")}','{member.GetPhone().Replace("'", "''")}','{member.GetEmail().Replace("'", "''")}')";
                 String memberdata = $"INSERT INTO members (memberID, firstname, familyname, birthdate, address, phone, email) VALUES($MemberID, $Firstname, $Lasttname, $Birthdate, $Address, $Phone, $Email)";
                 List<KeyValuePair<string, string>> groups = member.GetGroups();
                 dbConnection.Open();
@@ -143,7 +137,6 @@ namespace MembershipRegisterServer
                 dbCommand.Transaction = dbTransaction;
                 try
                 {
-                    //dbCommand = dbConnection.CreateCommand();
                     dbCommand.CommandText = memberdata;
                     dbCommand.Parameters.Clear();
                     dbCommand.Parameters.AddWithValue("$MemberID", member.GetMemberID());
@@ -156,7 +149,6 @@ namespace MembershipRegisterServer
                     dbCommand.ExecuteNonQuery();
                     for (int i = 0; i<groups.Count; i++)
                     {
-                        //String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{member.GetMemberID().Replace("'", "''")}','{groups[i].Key.Replace("'", "''")}','{groups[i].Value.Replace("'", "''")}')";
                         String teamdata = $"INSERT INTO teams (memberID, team, position) VALUES($ID, $Team, $Position)";
                         dbCommand.CommandText = teamdata;
                         dbCommand.Parameters.Clear();
@@ -168,8 +160,6 @@ namespace MembershipRegisterServer
                     dbTransaction.Commit();
                     Program.Log("Member created");
 
-                    //exists = true;
-
                     code = 200;
                     statusMessage = "Member created";
                     status[0] = code.ToString();
@@ -178,7 +168,6 @@ namespace MembershipRegisterServer
                 catch (Exception e)
                 {
                     Program.Log(e.ToString());
-                    //Program.Log("ERROR: SQLException while creating the member");
                     dbTransaction.Rollback();
                     code = 400;
                     statusMessage = "An error occurred while trying to add a Member";
@@ -198,7 +187,6 @@ namespace MembershipRegisterServer
                 status[0] = code.ToString();
                 status[1] = statusMessage;
             }
-            //return exists;
             return status;
         }
 
@@ -209,16 +197,13 @@ namespace MembershipRegisterServer
         {
             if (MemberExists(memberID))
             {
-                //String memberdata = $"DELETE FROM members WHERE memberID = '{memberID.Replace("'", "''")}'";
                 String memberdata = $"DELETE FROM members WHERE memberID = $ID";
-                //String groupddata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}'";
                 String groupddata = $"DELETE FROM teams WHERE memberID = $ID";
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
                 dbCommand.Transaction = dbTransaction;
                 try
                 {
-                    //dbCommand = dbConnection.CreateCommand();
                     dbCommand.CommandText = memberdata;
                     dbCommand.Parameters.Clear();
                     dbCommand.Parameters.AddWithValue("$ID", memberID);
@@ -233,7 +218,6 @@ namespace MembershipRegisterServer
                 catch (Exception e)
                 {
                     Program.Log(e.ToString());
-                    //Program.Log("ERROR: SQLException while creating the member");
                     dbTransaction.Rollback();
                     return false;
                 }
@@ -278,7 +262,6 @@ namespace MembershipRegisterServer
 
                         String groupdata = $"UPDATE teams SET memberID = $MemberID WHERE memberID = $OldID";
                         dbCommand.CommandText = groupdata;
-                        //dbCommand.Parameters.Clear();
                         dbCommand.ExecuteNonQuery();
 
                         dbTransaction.Commit();
@@ -289,7 +272,6 @@ namespace MembershipRegisterServer
                     catch (Exception e)
                     {
                         Program.Log(e.ToString());
-                        //Program.Log("ERROR: SQLException while editing a member");
                         dbTransaction.Rollback();
                         return false;
                     }
@@ -328,7 +310,6 @@ namespace MembershipRegisterServer
                         dbCommand.Transaction = dbTransaction;
                         try
                         {
-                            //String teamdata = $"INSERT INTO teams (memberID,team,position) VALUES('{memberID.Replace("'", "''")}','{newgroups[i].Key.Replace("'", "''")}','{newgroups[i].Value.Replace("'", "''")}')";
                             String teamdata = $"INSERT INTO teams (memberID, team, position) VALUES($ID ,$Team ,$Position )";
                             dbCommand.CommandText = teamdata;
                             dbCommand.Parameters.Clear();
@@ -337,13 +318,11 @@ namespace MembershipRegisterServer
                             dbCommand.Parameters.AddWithValue("$Position", newgroups[i].Value);
                             dbCommand.ExecuteNonQuery();
                             dbTransaction.Commit();
-                            //dbConnection.Close();
                             Program.Log("Group added");
                         }
                         catch (Exception e)
                         {
                             Program.Log(e.ToString());
-                            //Program.Log("ERROR: SQLException while creating the member");
                             dbTransaction.Rollback();
                             return false;
                         }
@@ -383,7 +362,6 @@ namespace MembershipRegisterServer
                         dbCommand.Transaction = dbTransaction;
                         try
                         {
-                            //String teamdata = $"DELETE FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{removedgroups[i].Key.Replace("'", "''")}' AND position = '{removedgroups[i].Value.Replace("'", "''")}'";
                             String teamdata = $"DELETE FROM teams WHERE memberID = $ID AND team = $Team AND position = $Position";
                             dbCommand.CommandText = teamdata;
                             dbCommand.Parameters.Clear();
@@ -392,13 +370,11 @@ namespace MembershipRegisterServer
                             dbCommand.Parameters.AddWithValue("$Position", removedgroups[i].Value);
                             dbCommand.ExecuteNonQuery();
                             dbTransaction.Commit();
-                            //dbConnection.Close();
                             Program.Log("Group deleted");
                         }
                         catch (Exception e)
                         {
                             Program.Log(e.ToString());
-                            //Program.Log("ERROR: SQLException while creating the member");
                             dbTransaction.Rollback();
                             return false;
                         }
@@ -444,7 +420,6 @@ namespace MembershipRegisterServer
                     dbCommand.Parameters.AddWithValue("$OldPosition", oldgroup.Value);
                     dbCommand.ExecuteNonQuery();
                     dbTransaction.Commit();
-                    //dbConnection.Close();
                     Program.Log("Group edited");
 
                     return true;
@@ -452,7 +427,6 @@ namespace MembershipRegisterServer
                 catch (Exception e)
                 {
                     Program.Log(e.ToString());
-                    //Program.Log("ERROR: SQLException while editing a member");
                     dbTransaction.Rollback();
                     return false;
                 }
@@ -471,10 +445,10 @@ namespace MembershipRegisterServer
         /*
          * GetMember method retrieves all member information from the database.
          */
-        public List<Member> GetMembers() //throws SQLException
+        public List<Member> GetMembers()
         {
             String query = "select * from members";
-            List<Member> people = new List<Member>();
+            List<Member> people = new();
             dbConnection.Open();
             try {
                 dbCommand = dbConnection.CreateCommand();
@@ -485,14 +459,13 @@ namespace MembershipRegisterServer
                     {
                         Console.Write($"{dbReader.GetString(i)} ");
                     }
-                    //String query2 = $"SELECT team, position FROM teams WHERE memberID = '{dbReader.GetString(0).Replace("'", "''")}'";
                     String query2 = $"SELECT team, position FROM teams WHERE memberID = $ID";
                     SqliteCommand dbCommand2 = dbConnection.CreateCommand(); 
                     dbCommand2.CommandText = query2;
                     dbCommand2.Parameters.Clear();
                     dbCommand2.Parameters.AddWithValue("$ID", dbReader.GetString(0));
                     SqliteDataReader dbReader2 = dbCommand2.ExecuteReader();
-                    List<KeyValuePair<string, string>> teams = new List<KeyValuePair<string, string>>();
+                    List<KeyValuePair<string, string>> teams = new();
                     while (dbReader2.Read())
                     {
                         Console.Write($"({dbReader2.GetString(0)} : {dbReader2.GetString(1)}) ");
@@ -506,7 +479,6 @@ namespace MembershipRegisterServer
 
             } catch (Exception e) {
                 Program.Log(e.ToString());
-                //Program.Log("ERROR: SQLException while reading user information from database");
             }
             finally
             {
@@ -518,10 +490,9 @@ namespace MembershipRegisterServer
         /*
          * MemberExists method checks if the given memberID already exists.
          */
-        public Boolean MemberExists(String memberID) //throws SQLException
+        public Boolean MemberExists(String memberID)
         {
             // selecting memberID with the given name from the members table
-            //String memberIDExists = $"SELECT memberID FROM members WHERE memberID = '{memberID.Replace("'", "''")}'";
             String memberIDExists = $"SELECT memberID FROM members WHERE memberID = $ID";
             Boolean exists = false;
             dbConnection.Open();
@@ -537,7 +508,6 @@ namespace MembershipRegisterServer
             catch (Exception e)
             {
                 Program.Log(e.ToString());
-                //Program.Log("SQLException while checking if a memberID exists.");
             }
             finally
             {
@@ -549,10 +519,9 @@ namespace MembershipRegisterServer
         /*
          * GroupExists method checks if the given member already has the given group and position combination.
          */
-        public Boolean GroupExists(String memberID, String group, String position) //throws SQLException
+        public Boolean GroupExists(String memberID, String group, String position)
         {
             // selecting entries with the given memberID, team and position
-            //String memberIDExists = $"SELECT memberID FROM teams WHERE memberID = '{memberID.Replace("'", "''")}' AND team = '{group.Replace("'", "''")}' AND position = '{position.Replace("'", "''")}'";
             String memberIDExists = $"SELECT memberID FROM teams WHERE memberID = $ID AND team = $Group AND position = $Position";
             Boolean exists = false;
             dbConnection.Open();
@@ -570,7 +539,6 @@ namespace MembershipRegisterServer
             catch (Exception e)
             {
                 Program.Log(e.ToString());
-                //Program.Log("SQLException while checking if a memberID exists.");
             }
             finally
             {

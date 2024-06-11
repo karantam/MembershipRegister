@@ -10,7 +10,6 @@ namespace MembershipRegisterServer
     public class Member
     {
         private string memberID, firstname, lastname, address, phone, email, birthdate;
-        //private DateOnly birthdate;
         List<KeyValuePair<string, string>> groups;
 
         // Constructor for the Member object
@@ -28,15 +27,16 @@ namespace MembershipRegisterServer
 
         public JsonObject ToJsonObject()
         {
-            JsonObject json = new JsonObject();
-
-            json.Add("id", this.memberID);
-            json.Add("firstname", this.firstname);
-            json.Add("lastname", this.lastname);
-            json.Add("birthdate", this.birthdate);
-            json.Add("address", this.address);
-            json.Add("phone", this.phone);
-            json.Add("email", this.email);
+            JsonObject json = new()
+            {
+                { "id", this.memberID },
+                { "firstname", this.firstname },
+                { "lastname", this.lastname },
+                { "birthdate", this.birthdate },
+                { "address", this.address },
+                { "phone", this.phone },
+                { "email", this.email }
+            };
             for (int i = 0; i< this.groups.Count; i++)
             {
                 json.Add($"team:{i}", this.groups[i].Key);
