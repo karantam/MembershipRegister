@@ -11,7 +11,7 @@ namespace MembershipRegisterServer
             Database.Instance.Open("Dataa.db");
 
             HttpListener listener = new();
-            listener.Prefixes.Add("http://localhost:8001/");
+            listener.Prefixes.Add("https://localhost:8001/");
 
             HandlerChooser chooser = new();
             chooser.AddHandler(new MemberRequestHandler());

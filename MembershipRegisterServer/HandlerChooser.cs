@@ -67,8 +67,8 @@ namespace MembershipRegisterServer
          */
         private void InvokeHandler(RequestHandler handler, HttpListenerContext context)
         {
-            RequestCommand command = new RequestCommand(handler, context);
-            Task handleRequestTask = new Task(command.Execute);
+            RequestCommand command = new(handler, context);
+            Task handleRequestTask = new(command.Execute);
             handleRequestTask.Start();
         }
 
