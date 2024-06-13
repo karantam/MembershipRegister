@@ -96,62 +96,76 @@ namespace MembershipRegisterServer
                         && jObjMember.TryGetValue("birthdate", out JToken? birthdatetoken) && jObjMember.TryGetValue("address", out JToken? addresstoken) && jObjMember.TryGetValue("phone", out JToken? phonetoken)
                         && jObjMember.TryGetValue("email", out JToken? emailtoken))
                     {
-                        if (idtoken != null && firstnametoken != null && lastnametoken != null && birthdatetoken != null && addresstoken != null && phonetoken != null && emailtoken != null)
+                        string id = idtoken.ToString();
+                        string firstname = firstnametoken.ToString();
+                        string lastname = lastnametoken.ToString();
+                        string birthdate = birthdatetoken.ToString();
+                        string address = addresstoken.ToString();
+                        string phone = phonetoken.ToString();
+                        string email = emailtoken.ToString();
+                        //if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname) || string.IsNullOrWhiteSpace(birthdate) ||
+                        //    string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(email))
+                        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname))
                         {
-                            string id = idtoken.ToString();
-                            string firstname = firstnametoken.ToString();
-                            string lastname = lastnametoken.ToString();
-                            string birthdate = birthdatetoken.ToString();
-                            string address = addresstoken.ToString();
-                            string phone = phonetoken.ToString();
-                            string email = emailtoken.ToString();
-                            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname) || string.IsNullOrWhiteSpace(birthdate) ||
-                                string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(email))
+                            code = 400;
+                            statusMessage = "Members id firstname and lastname can't be empty";
+                        }
+                        else
+                        {
+                            List<KeyValuePair<string, string>> groups = new();
+                            for (int i = 0; i > -1; i++)
                             {
-                                code = 400;
-                                statusMessage = "Members values can't be empty";
-                            }
-                            else
-                            {
-                                List<KeyValuePair<string, string>> groups = new();
-                                for (int i = 0; i > -1; i++)
+                                if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
                                 {
-                                    if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
+                                    if (teamtoken != null && positiontoken != null)
                                     {
-                                        if (teamtoken != null && positiontoken != null)
+                                        string team = teamtoken.ToString();
+                                        string position = positiontoken.ToString();
+                                        //if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
+                                        if (string.IsNullOrWhiteSpace(team) || groups.Contains(new KeyValuePair<string, string>(team, position)))
                                         {
-                                            string team = teamtoken.ToString();
-                                            string position = positiontoken.ToString();
-                                            if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
-                                            {
-                                                j++;
-                                            }
-                                            else
-                                            {
-
-                                                groups.Add(new KeyValuePair<string, string>(team, position));
-                                            }
+                                            j++;
                                         }
                                         else
                                         {
-                                            j++;
+
+                                            groups.Add(new KeyValuePair<string, string>(team, position));
                                         }
                                     }
                                     else
                                     {
-                                        i = -2;
+                                        j++;
                                     }
                                 }
-                                Member member = new(id, firstname, lastname, birthdate, address, phone, email, groups);
+                                else
+                                {
+                                    i = -2;
+                                }
+                            }
+                            // If birthdate was given try to parse is as DateTime
+                            if (string.IsNullOrWhiteSpace(birthdate))
+                            {
+                                Member member = new(id, firstname, lastname, null, address, phone, email, groups);
                                 status = Database.Instance.CreateMember(member);
                                 code = int.Parse(status[0]);
                                 statusMessage = status[1];
                             }
-                        }
-                        else
-                        {
-                            code = 400;
-                            statusMessage = "Members values can't be null";
+                            else if (DateTime.TryParse(birthdate, out DateTime birth))
+                            {
+                                Member member = new(id, firstname, lastname, birth, address, phone, email, groups);
+                                status = Database.Instance.CreateMember(member);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                            }
+                            else
+                            {
+                                code = 400;
+                                statusMessage = "birthdate was not in a valid format";
+                            }
+                            //Member member = new(id, firstname, lastname, birthdate, address, phone, email, groups);
+                            //status = Database.Instance.CreateMember(member);
+                            //code = int.Parse(status[0]);
+                            //statusMessage = status[1];
                         }
                     }
                     else
@@ -182,7 +196,7 @@ namespace MembershipRegisterServer
                 }
                 else
                 {
-                    statusMessage = $"Member created, but {j} groups were not created as they contained empty/null values";
+                    statusMessage = $"Member created, but {j} groups were not created as they contained empty/null group names or duplicate entries";
                     response.StatusCode = code;
                     byte[] messageBytes = Encoding.UTF8.GetBytes(statusMessage);
                     response.OutputStream.Write(messageBytes, 0, messageBytes.Length);

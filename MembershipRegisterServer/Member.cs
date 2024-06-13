@@ -10,15 +10,17 @@ namespace MembershipRegisterServer
     public class Member
     {
         private string memberID, firstname, lastname, address, phone, email, birthdate;
+        private DateTime? birth;
         List<KeyValuePair<string, string>> groups;
 
         // Constructor for the Member object
-        public Member(string memberIDpar, string firstnamepar, string lastnamepar, string birthdatepar, string addresspar, string phonepar, string emailpar, List<KeyValuePair<string, string>> groupspar)
+        public Member(string memberIDpar, string firstnamepar, string lastnamepar, DateTime? birthpar, string addresspar, string phonepar, string emailpar, List<KeyValuePair<string, string>> groupspar)
         {
             this.memberID = memberIDpar;
             this.firstname = firstnamepar;
             this.lastname = lastnamepar;
-            this.birthdate = birthdatepar;
+            //this.birthdate = birthdatepar;
+            this.birth = birthpar;
             this.address = addresspar;
             this.phone = phonepar;
             this.email = emailpar;
@@ -27,16 +29,35 @@ namespace MembershipRegisterServer
 
         public JsonObject ToJsonObject()
         {
-            JsonObject json = new()
+            JsonObject json;
+            if (this.birth != null)
+            {
+                json = new()
             {
                 { "id", this.memberID },
                 { "firstname", this.firstname },
                 { "lastname", this.lastname },
-                { "birthdate", this.birthdate },
+                //{ "birthdate", this.birthdate },
+                { "birthdate", this.birth?.ToString("dd.MM.yyyy") },
                 { "address", this.address },
                 { "phone", this.phone },
                 { "email", this.email }
             };
+            }
+            else
+            {
+                json = new()
+            {
+                { "id", this.memberID },
+                { "firstname", this.firstname },
+                { "lastname", this.lastname },
+                //{ "birthdate", this.birthdate },
+                { "birthdate", null },
+                { "address", this.address },
+                { "phone", this.phone },
+                { "email", this.email }
+            };
+            }
             for (int i = 0; i< this.groups.Count; i++)
             {
                 json.Add($"team:{i}", this.groups[i].Key);
@@ -62,9 +83,29 @@ namespace MembershipRegisterServer
             return this.lastname;
         }
 
+        /*
         public string GetBirthdate()
         {
             return this.birthdate;
+        }
+        */
+
+        public DateTime? GetBirthdate()
+        {
+            return this.birth;
+        }
+
+        public int GetBirthdateAsInt()
+        {
+            if(this.birth != null)
+            {
+                return int.Parse(this.birth?.ToString("yyyyMMdd"));
+            }
+            else
+            {
+                // 0 is used to represent null value
+                return 0;
+            }
         }
 
         public string GetAddress()

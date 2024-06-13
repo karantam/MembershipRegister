@@ -35,13 +35,13 @@ In Windows 10 a self-signed certificate can be generated and linked to a port by
 
 Run Powershell as administrator.
 
-Create self-signed Certificate
+Create self-signed Certificate:
 $Certificate=New-SelfSignedCertificate –Subject localhost -CertStoreLocation Cert:\LocalMachine\My
 
-Look up the Certificate thumbprint
+Look up the Certificate thumbprint:
 $Certificate
 
-Link the Certificate to the used port
+Link the Certificate to the used port:
 netsh http add sslcert ipport=0.0.0.0:{0} certhash={1} appid={2}
 
 Where {0} is your port. Code uses: 8001

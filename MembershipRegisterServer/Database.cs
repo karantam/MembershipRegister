@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -77,7 +78,8 @@ namespace MembershipRegisterServer
         {
             if (null != dbConnection) {
                 // Creating tables in the database.
-                string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate varchar(50), address varchar(50), phone varchar(50), email varchar(50))";
+                //string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate varchar(50), address varchar(50), phone varchar(50), email varchar(50))";
+                string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate numeric(50), address varchar(50), phone varchar(50), email varchar(50))";
                 string groupDB = "CREATE TABLE teams (id INTEGER PRIMARY KEY AUTOINCREMENT, memberID varchar(50) NOT NULL, team varchar(50) NOT NULL, position varchar(50))";
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
@@ -142,7 +144,7 @@ namespace MembershipRegisterServer
                     dbCommand.Parameters.AddWithValue("$MemberID", member.GetMemberID());
                     dbCommand.Parameters.AddWithValue("$Firstname", member.GetFirstname());
                     dbCommand.Parameters.AddWithValue("$Lasttname", member.GetLasttname());
-                    dbCommand.Parameters.AddWithValue("$Birthdate", member.GetBirthdate());
+                    dbCommand.Parameters.AddWithValue("$Birthdate", member.GetBirthdateAsInt());
                     dbCommand.Parameters.AddWithValue("$Address", member.GetAddress());
                     dbCommand.Parameters.AddWithValue("$Phone", member.GetPhone());
                     dbCommand.Parameters.AddWithValue("$Email", member.GetEmail());
@@ -253,7 +255,7 @@ namespace MembershipRegisterServer
                         dbCommand.Parameters.AddWithValue("$MemberID", newmember.GetMemberID());
                         dbCommand.Parameters.AddWithValue("$Firstname", newmember.GetFirstname());
                         dbCommand.Parameters.AddWithValue("$Lasttname", newmember.GetLasttname());
-                        dbCommand.Parameters.AddWithValue("$Birthdate", newmember.GetBirthdate());
+                        dbCommand.Parameters.AddWithValue("$Birthdate", newmember.GetBirthdateAsInt());
                         dbCommand.Parameters.AddWithValue("$Address", newmember.GetAddress());
                         dbCommand.Parameters.AddWithValue("$Phone", newmember.GetPhone());
                         dbCommand.Parameters.AddWithValue("$Email", newmember.GetEmail());
@@ -473,8 +475,16 @@ namespace MembershipRegisterServer
                         teams.Add(new KeyValuePair<string, string>(dbReader2.GetString(0), dbReader2.GetString(1)));
                     }
                     Console.WriteLine();
-                    people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), dbReader.GetString(3), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
-                    
+                    //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), dbReader.GetString(3), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), DateTime.ParseExact(dbReader.GetString(3), "yyyyMMdd", CultureInfo.InvariantCulture), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    if(dbReader.GetString(3) != "0")
+                    {
+                        people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), DateTime.ParseExact(dbReader.GetString(3), "yyyyMMdd", CultureInfo.InvariantCulture), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    }
+                    else
+                    {
+                        people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), null, dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    }
                 }
 
             } catch (Exception e) {
