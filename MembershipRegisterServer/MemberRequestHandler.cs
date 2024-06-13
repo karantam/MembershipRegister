@@ -96,13 +96,13 @@ namespace MembershipRegisterServer
                         && jObjMember.TryGetValue("birthdate", out JToken? birthdatetoken) && jObjMember.TryGetValue("address", out JToken? addresstoken) && jObjMember.TryGetValue("phone", out JToken? phonetoken)
                         && jObjMember.TryGetValue("email", out JToken? emailtoken))
                     {
-                        string id = idtoken.ToString();
-                        string firstname = firstnametoken.ToString();
-                        string lastname = lastnametoken.ToString();
-                        string birthdate = birthdatetoken.ToString();
-                        string address = addresstoken.ToString();
-                        string phone = phonetoken.ToString();
-                        string email = emailtoken.ToString();
+                        string id = idtoken.ToString().Trim();
+                        string firstname = firstnametoken.ToString().Trim();
+                        string lastname = lastnametoken.ToString().Trim();
+                        string birthdate = birthdatetoken.ToString().Trim();
+                        string address = addresstoken.ToString().Trim();
+                        string phone = phonetoken.ToString().Trim();
+                        string email = emailtoken.ToString().Trim();
                         //if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname) || string.IsNullOrWhiteSpace(birthdate) ||
                         //    string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(email))
                         if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname))
@@ -117,24 +117,17 @@ namespace MembershipRegisterServer
                             {
                                 if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
                                 {
-                                    if (teamtoken != null && positiontoken != null)
+                                    string team = teamtoken.ToString().Trim();
+                                    string position = positiontoken.ToString().Trim();
+                                    //if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
+                                    if (string.IsNullOrWhiteSpace(team) || groups.Contains(new KeyValuePair<string, string>(team, position)))
                                     {
-                                        string team = teamtoken.ToString();
-                                        string position = positiontoken.ToString();
-                                        //if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
-                                        if (string.IsNullOrWhiteSpace(team) || groups.Contains(new KeyValuePair<string, string>(team, position)))
-                                        {
-                                            j++;
-                                        }
-                                        else
-                                        {
-
-                                            groups.Add(new KeyValuePair<string, string>(team, position));
-                                        }
+                                        j++;
                                     }
                                     else
                                     {
-                                        j++;
+
+                                        groups.Add(new KeyValuePair<string, string>(team, position));
                                     }
                                 }
                                 else
