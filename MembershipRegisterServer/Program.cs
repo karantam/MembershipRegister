@@ -12,6 +12,7 @@ namespace MembershipRegisterServer
 
             HttpListener listener = new();
             listener.Prefixes.Add("https://localhost:8001/");
+            listener.AuthenticationSchemes = AuthenticationSchemes.Basic;
 
             HandlerChooser chooser = new();
             chooser.AddHandler(new MemberRequestHandler());

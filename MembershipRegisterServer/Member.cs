@@ -9,7 +9,7 @@ namespace MembershipRegisterServer
 {
     public class Member
     {
-        private string memberID, firstname, lastname, address, phone, email, birthdate;
+        private string memberID, firstname, lastname, address, phone, email;
         private DateTime? birth;
         List<KeyValuePair<string, string>> groups;
 

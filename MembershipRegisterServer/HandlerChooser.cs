@@ -45,21 +45,41 @@ namespace MembershipRegisterServer
         {
             //Getting the requested handler
             HttpListenerRequest request = context.Request;
+            HttpListenerBasicIdentity identity = (HttpListenerBasicIdentity)context.User.Identity;
             string HandlerName = request.Url.AbsolutePath;
 
-            RequestHandler handler;
-            //If requested handler exists use it
-            if (HandlersList.ContainsKey (HandlerName))
+            //Authenticate user name and password
+            if (identity.Name == "user" && identity.Password == "pass")
             {
-                handler = HandlersList[HandlerName];
+                RequestHandler handler;
+                //If requested handler exists use it
+                if (HandlersList.ContainsKey(HandlerName))
+                {
+                    handler = HandlersList[HandlerName];
+                }
+                else
+                {
+                    //If it doesn't exist use the default handler
+                    handler = HandlersList[InvalidRequestHandler.NAME];
+                }
+                handler.Handle(context);
+                //this.InvokeHandler(handler, context);
             }
             else
             {
-                //If it doesn't exist use the default handler
-                handler = HandlersList[InvalidRequestHandler.NAME];
+                HttpListenerResponse response = context.Response;
+
+                // set status as 401 unauthorized to indicate failed authentication
+                response.StatusCode = (int)HttpStatusCode.Unauthorized;
+
+                //creating and sending a response
+                string message = "Access denied";
+                byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                response.OutputStream.Write(messageBytes, 0, messageBytes.Length);
+                response.Close();
+
+                Program.Log($"Invalid username or password from user. Request string: {context.Request.RawUrl}");
             }
-            handler.Handle(context);
-            //this.InvokeHandler(handler, context);
         }
 
         /*

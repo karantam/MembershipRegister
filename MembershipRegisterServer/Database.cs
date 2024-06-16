@@ -78,6 +78,7 @@ namespace MembershipRegisterServer
         {
             if (null != dbConnection) {
                 // Creating tables in the database.
+                string userDB = "CREATE TABLE users (userID varchar(50) PRIMARY KEY, password varchar(50) NOT NULL, email varchar(50) NOT NULL, role varchar(50) NOT NULL)";
                 //string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate varchar(50), address varchar(50), phone varchar(50), email varchar(50))";
                 string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate numeric(50), address varchar(50), phone varchar(50), email varchar(50))";
                 string groupDB = "CREATE TABLE teams (id INTEGER PRIMARY KEY AUTOINCREMENT, memberID varchar(50) NOT NULL, team varchar(50) NOT NULL, position varchar(50))";
@@ -85,6 +86,8 @@ namespace MembershipRegisterServer
                 dbTransaction = dbConnection.BeginTransaction();
                 dbCommand.Transaction = dbTransaction;
                 try {
+                    dbCommand.CommandText = userDB;
+                    dbCommand.ExecuteNonQuery();
                     dbCommand.CommandText = memberDB;
                     dbCommand.ExecuteNonQuery();
                     dbCommand.CommandText = groupDB;
@@ -119,6 +122,244 @@ namespace MembershipRegisterServer
                 dbConnection.Dispose();
 
             }
+        }
+
+        /*
+         * CreateUser method saves a new user into the database
+         */
+        public String[] CreateUser(User user, Boolean admin)
+        {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+            string role;
+            if (admin)
+            {
+                role = "admin";
+            }
+            else
+            {
+                role = "user";
+            }
+
+            if (!UserExists(user.GetUserID()))
+            {
+                String memberdata = $"INSERT INTO users (userID, password, email, role) VALUES($UserID, $Password, $Email, $Role)";
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    dbCommand.CommandText = memberdata;
+                    dbCommand.Parameters.Clear();
+                    dbCommand.Parameters.AddWithValue("$UserID", user.GetUserID());
+                    dbCommand.Parameters.AddWithValue("$Password", user.GetPassword());
+                    dbCommand.Parameters.AddWithValue("$Email", user.GetEmail());
+                    dbCommand.Parameters.AddWithValue("$Role", role);
+                    dbCommand.ExecuteNonQuery();
+                    dbTransaction.Commit();
+                    Program.Log("User created");
+
+                    code = 200;
+                    statusMessage = "User created";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    dbTransaction.Rollback();
+                    code = 400;
+                    statusMessage = "An error occurred while trying to add a User";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                finally
+                {
+                    dbConnection.Close();
+                }
+            }
+            else
+            {
+                Program.Log("User creation failed. UserID already in use");
+                code = 400;
+                statusMessage = "UserID already in use";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
+            }
+            return status;
+        }
+
+        /*
+         * GetUser method retrieves user information from the database.
+         */
+        public User GetUser(String userID)
+        {
+            String query = $"SELECT userID, password, email FROM members WHERE userID = $ID";
+            String id = "";
+            String pass = "";
+            String email = "";
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = query;
+                dbCommand.Parameters.Clear();
+                dbCommand.Parameters.AddWithValue("$ID", userID);
+                dbReader = dbCommand.ExecuteReader();
+                if (dbReader.Read())
+                {
+                    id = dbReader.GetString(0);
+                    pass = dbReader.GetString(1);
+                    email = dbReader.GetString(2);
+                }
+
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return new User(id, pass, email);
+        }
+
+        /*
+         * CheckUser method checks if the given userID and password match ones in the database
+         */
+        public Boolean CheckUser(String userID, String password)
+        {
+            User existing = GetUser(userID);
+            if (!string.IsNullOrWhiteSpace(existing.GetUserID()) && existing.GetUserID().Equals(userID) && !string.IsNullOrWhiteSpace(existing.GetPassword()) && existing.GetPassword().Equals(password))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /*
+         * AnyUsers method checks if any users exist in the database
+         */
+        public Boolean AnyUsers()
+        {
+            // selecting 1 user from the users table
+            String anyusers = $"SELECT userID FROM users LIMIT 1";
+            Boolean exists = false;
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = anyusers;
+                dbReader = dbCommand.ExecuteReader();
+                //exists is true if users table has at least 1 user and false if it doesn't
+                exists = dbReader.Read();
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return exists;
+        }
+
+        /*
+         * UserExists method checks if the given userID already exists.
+         */
+        public Boolean UserExists(String userID)
+        {
+            // selecting userID with the given name from the users table
+            String userIDExists = $"SELECT userID FROM members WHERE userID = $ID";
+            Boolean exists = false;
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = userIDExists;
+                dbCommand.Parameters.Clear();
+                dbCommand.Parameters.AddWithValue("$ID", userID);
+                dbReader = dbCommand.ExecuteReader();
+                //exists is true if the given user exists in the database and false if it doesn't
+                exists = dbReader.Read();
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return exists;
+        }
+
+        /*
+         * IsAdmin method checks that the given user is an admin.
+         */
+        public Boolean IsAdmin(String userID)
+        {
+            // selecting and admin with the given userID from the users table
+            String userIDExists = $"SELECT userID FROM members WHERE userID = $ID AND WHERE role = $Role";
+            Boolean exists = false;
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = userIDExists;
+                dbCommand.Parameters.Clear();
+                dbCommand.Parameters.AddWithValue("$ID", userID);
+                dbCommand.Parameters.AddWithValue("$Role", "admin");
+                dbReader = dbCommand.ExecuteReader();
+                //exists is true if the given user is an admin and false if not
+                exists = dbReader.Read();
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return exists;
+        }
+
+        /*
+         * AnotherAdminExists method checks that the given user is not the last admin.
+         */
+        public Boolean AnotherAdminExists(String userID)
+        {
+            // selecting admins other than the given user from the users table
+            String userIDExists = $"SELECT userID FROM members WHERE userID != $ID AND WHERE role = $Role";
+            Boolean exists = false;
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = userIDExists;
+                dbCommand.Parameters.Clear();
+                dbCommand.Parameters.AddWithValue("$ID", userID);
+                dbCommand.Parameters.AddWithValue("$Role", "admin");
+                dbReader = dbCommand.ExecuteReader();
+                //exists is true if an admin besides the given user was found in the database and false if not
+                exists = dbReader.Read();
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return exists;
         }
 
         /*
@@ -295,6 +536,92 @@ namespace MembershipRegisterServer
             }
         }
 
+        /*
+         * GetMember method retrieves all member information from the database.
+         */
+        public List<Member> GetMembers()
+        {
+            String query = "SELECT * FROM members";
+            List<Member> people = new();
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = query;
+                dbReader = dbCommand.ExecuteReader();
+                while (dbReader.Read())
+                {
+                    for (int i = 0; i < 7; i++)
+                    {
+                        Console.Write($"{dbReader.GetString(i)} ");
+                    }
+                    String query2 = $"SELECT team, position FROM teams WHERE memberID = $ID";
+                    SqliteCommand dbCommand2 = dbConnection.CreateCommand();
+                    dbCommand2.CommandText = query2;
+                    dbCommand2.Parameters.Clear();
+                    dbCommand2.Parameters.AddWithValue("$ID", dbReader.GetString(0));
+                    SqliteDataReader dbReader2 = dbCommand2.ExecuteReader();
+                    List<KeyValuePair<string, string>> teams = new();
+                    while (dbReader2.Read())
+                    {
+                        Console.Write($"({dbReader2.GetString(0)} : {dbReader2.GetString(1)}) ");
+
+                        teams.Add(new KeyValuePair<string, string>(dbReader2.GetString(0), dbReader2.GetString(1)));
+                    }
+                    Console.WriteLine();
+                    //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), dbReader.GetString(3), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), DateTime.ParseExact(dbReader.GetString(3), "yyyyMMdd", CultureInfo.InvariantCulture), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    if (dbReader.GetString(3) != "0")
+                    {
+                        people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), DateTime.ParseExact(dbReader.GetString(3), "yyyyMMdd", CultureInfo.InvariantCulture), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    }
+                    else
+                    {
+                        people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), null, dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
+                    }
+                }
+
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return people;
+        }
+
+        /*
+         * MemberExists method checks if the given memberID already exists.
+         */
+        public Boolean MemberExists(String memberID)
+        {
+            // selecting memberID with the given name from the members table
+            String memberIDExists = $"SELECT memberID FROM members WHERE memberID = $ID";
+            Boolean exists = false;
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = memberIDExists;
+                dbCommand.Parameters.Clear();
+                dbCommand.Parameters.AddWithValue("$ID", memberID);
+                dbReader = dbCommand.ExecuteReader();
+                //exists is true if the given member exists in the database and false if it doesn't
+                exists = dbReader.Read();
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return exists;
+        }
 
         /*
          * AddGroup method adds a new group for a member in the database
@@ -445,88 +772,6 @@ namespace MembershipRegisterServer
         }
 
         /*
-         * GetMember method retrieves all member information from the database.
-         */
-        public List<Member> GetMembers()
-        {
-            String query = "select * from members";
-            List<Member> people = new();
-            dbConnection.Open();
-            try {
-                dbCommand = dbConnection.CreateCommand();
-                dbCommand.CommandText = query;
-                dbReader = dbCommand.ExecuteReader();
-                while (dbReader.Read()) {
-                    for(int i = 0; i < 7; i++)
-                    {
-                        Console.Write($"{dbReader.GetString(i)} ");
-                    }
-                    String query2 = $"SELECT team, position FROM teams WHERE memberID = $ID";
-                    SqliteCommand dbCommand2 = dbConnection.CreateCommand(); 
-                    dbCommand2.CommandText = query2;
-                    dbCommand2.Parameters.Clear();
-                    dbCommand2.Parameters.AddWithValue("$ID", dbReader.GetString(0));
-                    SqliteDataReader dbReader2 = dbCommand2.ExecuteReader();
-                    List<KeyValuePair<string, string>> teams = new();
-                    while (dbReader2.Read())
-                    {
-                        Console.Write($"({dbReader2.GetString(0)} : {dbReader2.GetString(1)}) ");
-
-                        teams.Add(new KeyValuePair<string, string>(dbReader2.GetString(0), dbReader2.GetString(1)));
-                    }
-                    Console.WriteLine();
-                    //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), dbReader.GetString(3), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
-                    //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), DateTime.ParseExact(dbReader.GetString(3), "yyyyMMdd", CultureInfo.InvariantCulture), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
-                    if(dbReader.GetString(3) != "0")
-                    {
-                        people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), DateTime.ParseExact(dbReader.GetString(3), "yyyyMMdd", CultureInfo.InvariantCulture), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
-                    }
-                    else
-                    {
-                        people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), null, dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
-                    }
-                }
-
-            } catch (Exception e) {
-                Program.Log(e.ToString());
-            }
-            finally
-            {
-                dbConnection.Close();
-            }
-            return people;
-        }
-
-        /*
-         * MemberExists method checks if the given memberID already exists.
-         */
-        public Boolean MemberExists(String memberID)
-        {
-            // selecting memberID with the given name from the members table
-            String memberIDExists = $"SELECT memberID FROM members WHERE memberID = $ID";
-            Boolean exists = false;
-            dbConnection.Open();
-            try
-            {
-                dbCommand = dbConnection.CreateCommand();
-                dbCommand.CommandText = memberIDExists;
-                dbCommand.Parameters.Clear();
-                dbCommand.Parameters.AddWithValue("$ID", memberID);
-                dbReader = dbCommand.ExecuteReader();
-                exists = dbReader.Read();
-            }
-            catch (Exception e)
-            {
-                Program.Log(e.ToString());
-            }
-            finally
-            {
-                dbConnection.Close();
-            }
-            return exists;
-        }
-
-        /*
          * GroupExists method checks if the given member already has the given group and position combination.
          */
         public Boolean GroupExists(String memberID, String group, String position)
@@ -544,6 +789,7 @@ namespace MembershipRegisterServer
                 dbCommandG.Parameters.AddWithValue("$Group", group);
                 dbCommandG.Parameters.AddWithValue("$Position", position);
                 dbReader = dbCommandG.ExecuteReader();
+                //exists is true if the given group exists in the database and false if it doesn't
                 exists = dbReader.Read();
             }
             catch (Exception e)
