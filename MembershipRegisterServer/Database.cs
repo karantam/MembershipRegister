@@ -65,7 +65,16 @@ namespace MembershipRegisterServer
             dbConnection = new SqliteConnection(database);
             dbCommand = new SqliteCommand("", dbConnection);
             if (!exists) {
-                InitializeDatabase();
+                Boolean created = InitializeDatabase();
+                if (created)
+                {
+                    // If a new database was created an user for that database will also be created
+                    Boolean ask = false;
+                    while (!ask)
+                    {
+                        ask = FirstUser();
+                    }
+                }
             } else {
                 Program.Log("Using already existing database");
             }
@@ -123,6 +132,77 @@ namespace MembershipRegisterServer
 
             }
         }
+
+        /*
+         * FirstUser method is used to create the first user through the command-line
+         */
+        private Boolean FirstUser()
+        {
+            if (AnyUsers())
+            {
+                Program.Log("Database already has an user");
+                return false;
+            }
+            else
+            {
+                Program.Log("Creating the first user of the membership register");
+                string username = "";
+                string password = "";
+                string email = "";
+                Boolean ask = true;
+                while (ask)
+                {
+                    Console.Write("Give username: ");
+                    username = Console.ReadLine().Trim();
+                    if (!string.IsNullOrWhiteSpace(username) && username.Length > 4 && username.Length < 21)
+                    {
+                        ask = false;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid username. Usernames length must be between 5 and 20 characters");
+                    }
+                }
+                ask = true;
+                while (ask)
+                {
+                    Console.Write("Give password: ");
+                    password = Console.ReadLine().Trim();
+                    if (!string.IsNullOrWhiteSpace(password) && password.Length > 4 && password.Length < 21)
+                    {
+                        ask = false;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid password. Passwords length must be between 5 and 20 characters");
+                    }
+                }
+                ask = true;
+                while (ask)
+                {
+                    Console.Write("Give email: ");
+                    email = Console.ReadLine().Trim();
+                    if (!string.IsNullOrWhiteSpace(email) && email.Length > 4 && email.Length < 51 && email.Contains('@'))
+                    {
+                        ask = false;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid email address");
+                    }
+                }
+                User first = new User(username, password, email);
+                String[] status = CreateUser(first, true);
+                int code = int.Parse(status[0]);
+                if (code < 400)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }        }
 
         /*
          * CreateUser method saves a new user into the database
@@ -195,7 +275,7 @@ namespace MembershipRegisterServer
          */
         public User GetUser(String userID)
         {
-            String query = $"SELECT userID, password, email FROM members WHERE userID = $ID";
+            String query = $"SELECT userID, password, email FROM users WHERE userID = $ID";
             String id = "";
             String pass = "";
             String email = "";
@@ -276,7 +356,7 @@ namespace MembershipRegisterServer
         public Boolean UserExists(String userID)
         {
             // selecting userID with the given name from the users table
-            String userIDExists = $"SELECT userID FROM members WHERE userID = $ID";
+            String userIDExists = $"SELECT userID FROM users WHERE userID = $ID";
             Boolean exists = false;
             dbConnection.Open();
             try
@@ -306,7 +386,7 @@ namespace MembershipRegisterServer
         public Boolean IsAdmin(String userID)
         {
             // selecting and admin with the given userID from the users table
-            String userIDExists = $"SELECT userID FROM members WHERE userID = $ID AND WHERE role = $Role";
+            String userIDExists = $"SELECT userID FROM users WHERE userID = $ID AND WHERE role = $Role";
             Boolean exists = false;
             dbConnection.Open();
             try
@@ -337,7 +417,7 @@ namespace MembershipRegisterServer
         public Boolean AnotherAdminExists(String userID)
         {
             // selecting admins other than the given user from the users table
-            String userIDExists = $"SELECT userID FROM members WHERE userID != $ID AND WHERE role = $Role";
+            String userIDExists = $"SELECT userID FROM users WHERE userID != $ID AND WHERE role = $Role";
             Boolean exists = false;
             dbConnection.Open();
             try

@@ -47,9 +47,9 @@ namespace MembershipRegisterServer
             HttpListenerRequest request = context.Request;
             HttpListenerBasicIdentity identity = (HttpListenerBasicIdentity)context.User.Identity;
             string HandlerName = request.Url.AbsolutePath;
-
             //Authenticate user name and password
-            if (identity.Name == "user" && identity.Password == "pass")
+            if (identity != null && Database.Instance.CheckUser(identity.Name, identity.Password))
+            //if (identity.Name == "user" && identity.Password == "pass")
             {
                 RequestHandler handler;
                 //If requested handler exists use it
