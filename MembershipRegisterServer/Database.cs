@@ -77,6 +77,12 @@ namespace MembershipRegisterServer
                 }
             } else {
                 Program.Log("Using already existing database");
+                // Cheking that the database has an user and if not creating one
+                Boolean ask = false;
+                while (!ask)
+                {
+                    ask = FirstUser();
+                }
             }
         }
 
@@ -141,7 +147,7 @@ namespace MembershipRegisterServer
             if (AnyUsers())
             {
                 Program.Log("Database already has an user");
-                return false;
+                return true;
             }
             else
             {
@@ -167,7 +173,28 @@ namespace MembershipRegisterServer
                 while (ask)
                 {
                     Console.Write("Give password: ");
-                    password = Console.ReadLine().Trim();
+                    password = "";
+                    char i;
+                    do
+                    {
+                        i = Console.ReadKey(true).KeyChar;
+                        //Adding the character to the password string unless it's enter, backspace or whitespace
+                        if (i != '\r' && i != '\b' && !char.IsWhiteSpace(i))
+                        {
+                            Console.Write('*');
+                            password += i;
+                        }
+                        else if (i == '\b')
+                        {
+                            if (password.Length > 0)
+                            {
+                                password = password.Remove(password.Length - 1);
+                                Console.Write("\b \b");
+                            }
+                        }
+                    } while (i != '\r');
+                    Console.Write('\n');
+                    //password = Console.ReadLine().Trim();
                     if (!string.IsNullOrWhiteSpace(password) && password.Length > 4 && password.Length < 21)
                     {
                         ask = false;
@@ -196,6 +223,8 @@ namespace MembershipRegisterServer
                 int code = int.Parse(status[0]);
                 if (code < 400)
                 {
+                    Thread.Sleep(2000);
+                    Console.Clear();
                     return true;
                 }
                 else
