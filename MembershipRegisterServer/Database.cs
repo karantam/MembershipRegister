@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Metrics;
+using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -93,7 +94,7 @@ namespace MembershipRegisterServer
         {
             if (null != dbConnection) {
                 // Creating tables in the database.
-                string userDB = "CREATE TABLE users (userID varchar(50) PRIMARY KEY, password varchar(50) NOT NULL, email varchar(50) NOT NULL, role varchar(50) NOT NULL)";
+                string userDB = "CREATE TABLE users (userID varchar(50) PRIMARY KEY, password varchar(50) NOT NULL, salt varchar(50) NOT NULL, email varchar(50) NOT NULL, role varchar(50) NOT NULL)";
                 //string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate varchar(50), address varchar(50), phone varchar(50), email varchar(50))";
                 string memberDB = "CREATE TABLE members (memberID varchar(50) PRIMARY KEY, firstname varchar(50) NOT NULL, familyname varchar(50) NOT NULL, birthdate numeric(50), address varchar(50), phone varchar(50), email varchar(50))";
                 string groupDB = "CREATE TABLE teams (id INTEGER PRIMARY KEY AUTOINCREMENT, memberID varchar(50) NOT NULL, team varchar(50) NOT NULL, position varchar(50))";
@@ -253,7 +254,14 @@ namespace MembershipRegisterServer
 
             if (!UserExists(user.GetUserID()))
             {
-                String memberdata = $"INSERT INTO users (userID, password, email, role) VALUES($UserID, $Password, $Email, $Role)";
+                String memberdata = $"INSERT INTO users (userID, password, salt, email, role) VALUES($UserID, $Password, $Salt, $Email, $Role)";
+                byte[] saltbytes = new byte[24];
+                saltbytes = RandomNumberGenerator.GetBytes(24);
+                String salt = Convert.ToBase64String(saltbytes);
+                //var byteResult = new Rfc2898DeriveBytes(user.GetPassword(), 24, 10000, HashAlgorithmName.SHA512);
+                var byteResult = new Rfc2898DeriveBytes(user.GetPassword(), Encoding.UTF8.GetBytes(salt), 10000, HashAlgorithmName.SHA512);
+                String hashedpass = Convert.ToBase64String(byteResult.GetBytes(24));
+                //String salt = Convert.ToBase64String(saltbytes);
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
                 dbCommand.Transaction = dbTransaction;
@@ -262,7 +270,9 @@ namespace MembershipRegisterServer
                     dbCommand.CommandText = memberdata;
                     dbCommand.Parameters.Clear();
                     dbCommand.Parameters.AddWithValue("$UserID", user.GetUserID());
-                    dbCommand.Parameters.AddWithValue("$Password", user.GetPassword());
+                    //dbCommand.Parameters.AddWithValue("$Password", user.GetPassword());
+                    dbCommand.Parameters.AddWithValue("$Password", hashedpass);
+                    dbCommand.Parameters.AddWithValue("$Salt", salt);
                     dbCommand.Parameters.AddWithValue("$Email", user.GetEmail());
                     dbCommand.Parameters.AddWithValue("$Role", role);
                     dbCommand.ExecuteNonQuery();
@@ -304,9 +314,10 @@ namespace MembershipRegisterServer
          */
         public User GetUser(String userID)
         {
-            String query = $"SELECT userID, password, email FROM users WHERE userID = $ID";
+            String query = $"SELECT userID, password, salt, email FROM users WHERE userID = $ID";
             String id = "";
             String pass = "";
+            String salt = "";
             String email = "";
             dbConnection.Open();
             try
@@ -320,7 +331,8 @@ namespace MembershipRegisterServer
                 {
                     id = dbReader.GetString(0);
                     pass = dbReader.GetString(1);
-                    email = dbReader.GetString(2);
+                    salt = dbReader.GetString(2);
+                    email = dbReader.GetString(3);
                 }
 
             }
@@ -332,7 +344,7 @@ namespace MembershipRegisterServer
             {
                 dbConnection.Close();
             }
-            return new User(id, pass, email);
+            return new User(id, pass, salt, email);
         }
 
         /*
@@ -341,7 +353,9 @@ namespace MembershipRegisterServer
         public Boolean CheckUser(String userID, String password)
         {
             User existing = GetUser(userID);
-            if (!string.IsNullOrWhiteSpace(existing.GetUserID()) && existing.GetUserID().Equals(userID) && !string.IsNullOrWhiteSpace(existing.GetPassword()) && existing.GetPassword().Equals(password))
+            var byteResult = new Rfc2898DeriveBytes(password, Encoding.UTF8.GetBytes(existing.GetSalt()), 10000, HashAlgorithmName.SHA512);
+            String hashedpass = Convert.ToBase64String(byteResult.GetBytes(24));
+            if (!string.IsNullOrWhiteSpace(existing.GetUserID()) && existing.GetUserID().Equals(userID) && !string.IsNullOrWhiteSpace(existing.GetPassword()) && existing.GetPassword().Equals(hashedpass))
             {
                 return true;
             }
