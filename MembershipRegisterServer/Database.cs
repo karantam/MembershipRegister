@@ -559,8 +559,12 @@ namespace MembershipRegisterServer
         /*
          * RemoveMember method removes a member from the members table and all entries related to the member from the teams table
          */
-        public Boolean RemoveMember(String memberID)
+        public String[] RemoveMember(String memberID)
         {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+
             if (MemberExists(memberID))
             {
                 String memberdata = $"DELETE FROM members WHERE memberID = $ID";
@@ -579,13 +583,19 @@ namespace MembershipRegisterServer
                     dbTransaction.Commit();
                     Program.Log("Member deleted");
 
-                    return true;
+                    code = 200;
+                    statusMessage = "Member deleted";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
                 }
                 catch (Exception e)
                 {
                     Program.Log(e.ToString());
                     dbTransaction.Rollback();
-                    return false;
+                    code = 400;
+                    statusMessage = "An error occurred while trying to delete a Member";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
                 }
                 finally
                 {
@@ -595,15 +605,23 @@ namespace MembershipRegisterServer
             else
             {
                 Program.Log("Member does not exist");
-                return false;
+                code = 400;
+                statusMessage = "That member does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
             }
+            return status;
         }
 
         /*
          * EditMember method changes a members data in the members table and updats the associated member ID's in the teams table
          */
-        public Boolean EditMember(String oldID, Member newmember)
+        public String[] EditMember(String oldID, Member newmember)
         {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+
             if (MemberExists(oldID))
             {
                 if (!MemberExists(newmember.GetMemberID()))
@@ -633,13 +651,19 @@ namespace MembershipRegisterServer
                         dbTransaction.Commit();
                         Program.Log("Member edited");
 
-                        return true;
+                        code = 200;
+                        statusMessage = "Member data updated";
+                        status[0] = code.ToString();
+                        status[1] = statusMessage;
                     }
                     catch (Exception e)
                     {
                         Program.Log(e.ToString());
                         dbTransaction.Rollback();
-                        return false;
+                        code = 400;
+                        statusMessage = "An error occurred while trying to edit a Member";
+                        status[0] = code.ToString();
+                        status[1] = statusMessage;
                     }
                     finally
                     {
@@ -649,14 +673,21 @@ namespace MembershipRegisterServer
                 else
                 {
                     Program.Log("New MemberID is already in use");
-                    return false;
+                    code = 400;
+                    statusMessage = "New MemberID is already in use";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
                 }
             }
             else
             {
                 Program.Log("Member does not exist in the database");
-                return false;
+                code = 400;
+                statusMessage = "That member does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
             }
+            return status;
         }
 
         /*

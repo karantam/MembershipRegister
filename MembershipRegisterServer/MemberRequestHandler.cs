@@ -2,8 +2,10 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -91,80 +93,180 @@ namespace MembershipRegisterServer
                 {
                     JObject jObjMember = JObject.Parse(body);
 
-                    // Creating a member object from the user data
-                    if (jObjMember.TryGetValue("id", out JToken? idtoken) && jObjMember.TryGetValue("firstname", out JToken? firstnametoken) && jObjMember.TryGetValue("lastname", out JToken? lastnametoken)
-                        && jObjMember.TryGetValue("birthdate", out JToken? birthdatetoken) && jObjMember.TryGetValue("address", out JToken? addresstoken) && jObjMember.TryGetValue("phone", out JToken? phonetoken)
-                        && jObjMember.TryGetValue("email", out JToken? emailtoken))
+                    // Checking if the request has an action entry and if it does replacing the default empty string with the desired action
+                    string action = "";
+                    if (jObjMember.TryGetValue("action", out JToken? actiontoken))
                     {
-                        string id = idtoken.ToString().Trim();
-                        string firstname = firstnametoken.ToString().Trim();
-                        string lastname = lastnametoken.ToString().Trim();
-                        string birthdate = birthdatetoken.ToString().Trim();
-                        string address = addresstoken.ToString().Trim();
-                        string phone = phonetoken.ToString().Trim();
-                        string email = emailtoken.ToString().Trim();
-                        //if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname) || string.IsNullOrWhiteSpace(birthdate) ||
-                        //    string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(email))
-                        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname))
-                        {
-                            code = 400;
-                            statusMessage = "Members id firstname and lastname can't be empty";
-                        }
-                        else
-                        {
-                            List<KeyValuePair<string, string>> groups = new();
-                            for (int i = 0; i > -1; i++)
-                            {
-                                if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
-                                {
-                                    string team = teamtoken.ToString().Trim();
-                                    string position = positiontoken.ToString().Trim();
-                                    //if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
-                                    if (string.IsNullOrWhiteSpace(team) || groups.Contains(new KeyValuePair<string, string>(team, position)))
-                                    {
-                                        j++;
-                                    }
-                                    else
-                                    {
+                        action = actiontoken.ToString().Trim();
+                    }
 
-                                        groups.Add(new KeyValuePair<string, string>(team, position));
-                                    }
-                                }
-                                else
-                                {
-                                    i = -2;
-                                }
-                            }
-                            // If birthdate was given try to parse is as DateTime
-                            if (string.IsNullOrWhiteSpace(birthdate))
+                    // Performing the default action of creating a new member
+                    if (string.IsNullOrWhiteSpace(action))
+                    {
+                        // Creating a member object from the user data
+                        if (jObjMember.TryGetValue("id", out JToken? idtoken) && jObjMember.TryGetValue("firstname", out JToken? firstnametoken) && jObjMember.TryGetValue("lastname", out JToken? lastnametoken)
+                            && jObjMember.TryGetValue("birthdate", out JToken? birthdatetoken) && jObjMember.TryGetValue("address", out JToken? addresstoken) && jObjMember.TryGetValue("phone", out JToken? phonetoken)
+                            && jObjMember.TryGetValue("email", out JToken? emailtoken))
+                        {
+                            string id = idtoken.ToString().Trim();
+                            string firstname = firstnametoken.ToString().Trim();
+                            string lastname = lastnametoken.ToString().Trim();
+                            string birthdate = birthdatetoken.ToString().Trim();
+                            string address = addresstoken.ToString().Trim();
+                            string phone = phonetoken.ToString().Trim();
+                            string email = emailtoken.ToString().Trim();
+                            //if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname) || string.IsNullOrWhiteSpace(birthdate) ||
+                            //    string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(phone) || string.IsNullOrWhiteSpace(email))
+                            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname))
                             {
-                                Member member = new(id, firstname, lastname, null, address, phone, email, groups);
-                                status = Database.Instance.CreateMember(member);
-                                code = int.Parse(status[0]);
-                                statusMessage = status[1];
-                            }
-                            else if (DateTime.TryParse(birthdate, out DateTime birth))
-                            {
-                                Member member = new(id, firstname, lastname, birth, address, phone, email, groups);
-                                status = Database.Instance.CreateMember(member);
-                                code = int.Parse(status[0]);
-                                statusMessage = status[1];
+                                code = 400;
+                                statusMessage = "Members id, firstname and lastname can't be empty";
                             }
                             else
                             {
-                                code = 400;
-                                statusMessage = "birthdate was not in a valid format";
+                                List<KeyValuePair<string, string>> groups = new();
+                                for (int i = 0; i > -1; i++)
+                                {
+                                    if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
+                                    {
+                                        string team = teamtoken.ToString().Trim();
+                                        string position = positiontoken.ToString().Trim();
+                                        //if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
+                                        if (string.IsNullOrWhiteSpace(team) || groups.Contains(new KeyValuePair<string, string>(team, position)))
+                                        {
+                                            j++;
+                                        }
+                                        else
+                                        {
+
+                                            groups.Add(new KeyValuePair<string, string>(team, position));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        i = -2;
+                                    }
+                                }
+                                if (string.IsNullOrWhiteSpace(birthdate))
+                                {
+                                    Member member = new(id, firstname, lastname, null, address, phone, email, groups);
+                                    status = Database.Instance.CreateMember(member);
+                                    code = int.Parse(status[0]);
+                                    statusMessage = status[1];
+                                }
+                                // If birthdate was given try to parse is as DateTime
+                                else if (DateTime.TryParse(birthdate, out DateTime birth))
+                                {
+                                    Member member = new(id, firstname, lastname, birth, address, phone, email, groups);
+                                    status = Database.Instance.CreateMember(member);
+                                    code = int.Parse(status[0]);
+                                    statusMessage = status[1];
+                                }
+                                else
+                                {
+                                    code = 400;
+                                    statusMessage = "birthdate was not in a valid format";
+                                }
+                                //Member member = new(id, firstname, lastname, birthdate, address, phone, email, groups);
+                                //status = Database.Instance.CreateMember(member);
+                                //code = int.Parse(status[0]);
+                                //statusMessage = status[1];
                             }
-                            //Member member = new(id, firstname, lastname, birthdate, address, phone, email, groups);
-                            //status = Database.Instance.CreateMember(member);
-                            //code = int.Parse(status[0]);
-                            //statusMessage = status[1];
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid member JSON in request body";
                         }
                     }
+
+                    // Updating the data of the given member
+                    else if (action == "edit")
+                    {
+                        // Creating a member object from the user data and getting the original member id
+                        if (jObjMember.TryGetValue("oldid", out JToken? oldidtoken) && jObjMember.TryGetValue("id", out JToken? idtoken) && jObjMember.TryGetValue("firstname", out JToken? firstnametoken) && jObjMember.TryGetValue("lastname", out JToken? lastnametoken)
+                            && jObjMember.TryGetValue("birthdate", out JToken? birthdatetoken) && jObjMember.TryGetValue("address", out JToken? addresstoken) && jObjMember.TryGetValue("phone", out JToken? phonetoken)
+                            && jObjMember.TryGetValue("email", out JToken? emailtoken))
+                        {
+                            string oldid = oldidtoken.ToString().Trim();
+                            string id = idtoken.ToString().Trim();
+                            string firstname = firstnametoken.ToString().Trim();
+                            string lastname = lastnametoken.ToString().Trim();
+                            string birthdate = birthdatetoken.ToString().Trim();
+                            string address = addresstoken.ToString().Trim();
+                            string phone = phonetoken.ToString().Trim();
+                            string email = emailtoken.ToString().Trim();
+
+                            if (string.IsNullOrWhiteSpace(oldid) || string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(firstname) || string.IsNullOrWhiteSpace(lastname))
+                            {
+                                code = 400;
+                                statusMessage = "Members id, firstname and lastname can't be empty";
+                            }
+                            else
+                            {
+                                List<KeyValuePair<string, string>> groups = new();
+
+                                if (string.IsNullOrWhiteSpace(birthdate))
+                                {
+                                    Member member = new(id, firstname, lastname, null, address, phone, email, groups);
+                                    status = Database.Instance.EditMember(oldid, member);
+                                    code = int.Parse(status[0]);
+                                    statusMessage = status[1];
+                                }
+                                // If birthdate was given try to parse is as DateTime
+                                else if (DateTime.TryParse(birthdate, out DateTime birth))
+                                {
+                                    Member member = new(id, firstname, lastname, birth, address, phone, email, groups);
+                                    status = Database.Instance.EditMember(oldid, member);
+                                    code = int.Parse(status[0]);
+                                    statusMessage = status[1];
+                                }
+                                else
+                                {
+                                    code = 400;
+                                    statusMessage = "birthdate was not in a valid format";
+                                }
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid member JSON in request body";
+                        }
+                    }
+
+                    // Deleting given member from the database
+                    else if (action == "delete")
+                    {
+                        // Getting the member id
+                        if (jObjMember.TryGetValue("id", out JToken? idtoken))
+                        {
+                            string id = idtoken.ToString().Trim();
+
+                            if (string.IsNullOrWhiteSpace(id))
+                            {
+                                code = 400;
+                                statusMessage = "Members id can't be empty";
+                            }
+                            else
+                            {
+                                status = Database.Instance.RemoveMember(id);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid member JSON in request body";
+                        }
+                    }
+
+                    // Giving an error if action was given but wasn't edit or delete
                     else
                     {
                         code = 400;
-                        statusMessage = "No valid member JSON in request body";
+                        statusMessage = "Invalid action";
                     }
                 }
                 catch(Exception e)
@@ -185,6 +287,8 @@ namespace MembershipRegisterServer
                 if (j == 0)
                 {
                     response.StatusCode = code;
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(statusMessage);
+                    response.OutputStream.Write(messageBytes, 0, messageBytes.Length);
                     response.Close();
                 }
                 else
