@@ -77,6 +77,7 @@ namespace MembershipRegisterServer
             int code;
             string statusMessage;
             int j = 0;
+            int k = 0;
             if (request.ContentType == null)
             {
                 code = 400;
@@ -179,6 +180,55 @@ namespace MembershipRegisterServer
                             statusMessage = "No valid member JSON in request body";
                         }
                     }
+                    // Adding groups to a member
+                    if (action == "addgroup")
+                    {
+                        // Creating a member object from the user data
+                        if (jObjMember.TryGetValue("id", out JToken? idtoken))
+                        {
+                            string id = idtoken.ToString().Trim();
+                            if (string.IsNullOrWhiteSpace(id))
+                            {
+                                code = 400;
+                                statusMessage = "Members id can't be empty";
+                            }
+                            else
+                            {
+                                List<KeyValuePair<string, string>> groups = new();
+                                for (int i = 0; i > -1; i++)
+                                {
+                                    if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
+                                    {
+                                        string team = teamtoken.ToString().Trim();
+                                        string position = positiontoken.ToString().Trim();
+                                        //if (string.IsNullOrWhiteSpace(team) || string.IsNullOrWhiteSpace(position))
+                                        if (string.IsNullOrWhiteSpace(team) || groups.Contains(new KeyValuePair<string, string>(team, position)))
+                                        {
+                                            k++;
+                                        }
+                                        else
+                                        {
+
+                                            groups.Add(new KeyValuePair<string, string>(team, position));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        i = -2;
+                                    }
+                                }
+                                status = Database.Instance.AddGroup(id, groups);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                                k += int.Parse(status[2]);
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid JSON in request body";
+                        }
+                    }
 
                     // Updating the data of the given member
                     else if (action == "edit")
@@ -231,7 +281,46 @@ namespace MembershipRegisterServer
                         else
                         {
                             code = 400;
-                            statusMessage = "No valid member JSON in request body";
+                            statusMessage = "No valid JSON in request body";
+                        }
+                    }
+
+                    // Updating given group
+                    else if (action == "editgroup")
+                    {
+                        // Getting the member id and old and new group
+                        if (jObjMember.TryGetValue("id", out JToken? idtoken) && jObjMember.TryGetValue($"oldteam", out JToken? oldteamtoken) && jObjMember.TryGetValue($"oldposition", out JToken? oldpositiontoken)
+                            && jObjMember.TryGetValue($"newteam", out JToken? newteamtoken) && jObjMember.TryGetValue($"newposition", out JToken? newpositiontoken))
+                        {
+                            string id = idtoken.ToString().Trim();
+                            string oldteam = oldteamtoken.ToString().Trim();
+                            string oldposition = oldpositiontoken.ToString().Trim();
+                            string newteam = newteamtoken.ToString().Trim();
+                            string newposition = newpositiontoken.ToString().Trim();
+
+                            if (string.IsNullOrWhiteSpace(id))
+                            {
+                                code = 400;
+                                statusMessage = "Members id can't be empty";
+                            }
+                            else if (string.IsNullOrWhiteSpace(oldteam) || string.IsNullOrWhiteSpace(newteam))
+                            {
+                                code = 400;
+                                statusMessage = "group name can't be empty";
+                            }
+                            else
+                            {
+                                KeyValuePair<string, string> oldgroup = new KeyValuePair<string, string>(oldteam, oldposition);
+                                KeyValuePair<string, string> newgroup = new KeyValuePair<string, string>(newteam, newposition);
+                                status = Database.Instance.EditGroup(id, oldgroup, newgroup);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid JSON in request body";
                         }
                     }
 
@@ -258,11 +347,52 @@ namespace MembershipRegisterServer
                         else
                         {
                             code = 400;
-                            statusMessage = "No valid member JSON in request body";
+                            statusMessage = "No valid JSON in request body";
                         }
                     }
 
-                    // Giving an error if action was given but wasn't edit or delete
+                    // Deleting groups from a given member
+                    else if (action == "deletegroup")
+                    {
+                        // Getting the member id
+                        if (jObjMember.TryGetValue("id", out JToken? idtoken))
+                        {
+                            string id = idtoken.ToString().Trim();
+
+                            if (string.IsNullOrWhiteSpace(id))
+                            {
+                                code = 400;
+                                statusMessage = "Members id can't be empty";
+                            }
+                            else
+                            {
+                                List<KeyValuePair<string, string>> groups = new();
+                                for (int i = 0; i > -1; i++)
+                                {
+                                    if (jObjMember.TryGetValue($"team:{i}", out JToken? teamtoken) && jObjMember.TryGetValue($"position:{i}", out JToken? positiontoken))
+                                    {
+                                        string team = teamtoken.ToString().Trim();
+                                        string position = positiontoken.ToString().Trim();
+                                        groups.Add(new KeyValuePair<string, string>(team, position));
+                                    }
+                                    else
+                                    {
+                                        i = -2;
+                                    }
+                                }
+                                status = Database.Instance.RemoveGroup(id, groups);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid JSON in request body";
+                        }
+                    }
+
+                    // Giving an error if action was given but wasn't addgroup, edit, editgroup, delete or deletegroup
                     else
                     {
                         code = 400;
@@ -284,8 +414,17 @@ namespace MembershipRegisterServer
 
             if (code < 400)
             {
-                if (j == 0)
+                if (j > 0)
                 {
+                    statusMessage = $"Member created, but {j} groups were not created as they contained empty/null group names or duplicate entries";
+                    response.StatusCode = code;
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(statusMessage);
+                    response.OutputStream.Write(messageBytes, 0, messageBytes.Length);
+                    response.Close();
+                }
+                else if (k > 0)
+                {
+                    statusMessage = $"{k} groups were not added as they contained empty/null group names or duplicate entries";
                     response.StatusCode = code;
                     byte[] messageBytes = Encoding.UTF8.GetBytes(statusMessage);
                     response.OutputStream.Write(messageBytes, 0, messageBytes.Length);
@@ -293,7 +432,6 @@ namespace MembershipRegisterServer
                 }
                 else
                 {
-                    statusMessage = $"Member created, but {j} groups were not created as they contained empty/null group names or duplicate entries";
                     response.StatusCode = code;
                     byte[] messageBytes = Encoding.UTF8.GetBytes(statusMessage);
                     response.OutputStream.Write(messageBytes, 0, messageBytes.Length);

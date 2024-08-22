@@ -780,10 +780,62 @@ namespace MembershipRegisterServer
         /*
          * AddGroup method adds a new group for a member in the database
          */
-        public Boolean AddGroup(String memberID, List<KeyValuePair<string, string>> newgroups)
+        public string[] AddGroup(String memberID, List<KeyValuePair<string, string>> newgroups)
         {
+            string[] status = new string[3];
+            int code;
+            string statusMessage;
+            int j = 0;
             if (MemberExists(memberID))
             {
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    for (int i = 0; i < newgroups.Count; i++)
+                    {
+                        if (!GroupExists(memberID, newgroups[i].Key, newgroups[i].Value))
+                        {
+                            {
+                                String teamdata = $"INSERT INTO teams (memberID, team, position) VALUES($ID ,$Team ,$Position )";
+                                dbCommand.CommandText = teamdata;
+                                dbCommand.Parameters.Clear();
+                                dbCommand.Parameters.AddWithValue("$ID", memberID);
+                                dbCommand.Parameters.AddWithValue("$Team", newgroups[i].Key);
+                                dbCommand.Parameters.AddWithValue("$Position", newgroups[i].Value);
+                                dbCommand.ExecuteNonQuery();
+                                Program.Log("Group added");
+                            }
+                        }
+                        else
+                        {
+                            Program.Log("Duplicate entry not added into the database");
+                            j++;
+                        }
+                    }
+                    dbTransaction.Commit();
+                    Program.Log("All non duplicate groups added");
+                    code = 200;
+                    statusMessage = "All non duplicate groups added";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                    status[2] = j.ToString();
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    dbTransaction.Rollback();
+                    code = 400;
+                    statusMessage = "An error occurred while trying to add groups";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                finally
+                {
+                    dbConnection.Close();
+                }
+                /*
                 for (int i = 0; i < newgroups.Count; i++)
                 {
                     if (!GroupExists(memberID, newgroups[i].Key, newgroups[i].Value))
@@ -820,23 +872,75 @@ namespace MembershipRegisterServer
                     }
                 }
                 Program.Log("All non duplicate groups added");
-                return true;
+                return true;*/
             }
             else
             {
                 Program.Log("Member does not exist in the database");
-                return false;
+                code = 400;
+                statusMessage = "That member does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
             }
+            return status;
         }
 
         /*
          * RemoveGroup method removes a group from a member in the database
          */
-        public Boolean RemoveGroup(String memberID, List<KeyValuePair<string, string>> removedgroups)
+        public string[] RemoveGroup(String memberID, List<KeyValuePair<string, string>> removedgroups)
         {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+
             if (MemberExists(memberID))
             {
-                for (int i = 0; i < removedgroups.Count; i++)
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    for (int i = 0; i < removedgroups.Count; i++)
+                    {
+                        if (GroupExists(memberID, removedgroups[i].Key, removedgroups[i].Value))
+                        {
+                            String teamdata = $"DELETE FROM teams WHERE memberID = $ID AND team = $Team AND position = $Position";
+                            dbCommand.CommandText = teamdata;
+                            dbCommand.Parameters.Clear();
+                            dbCommand.Parameters.AddWithValue("$ID", memberID);
+                            dbCommand.Parameters.AddWithValue("$Team", removedgroups[i].Key);
+                            dbCommand.Parameters.AddWithValue("$Position", removedgroups[i].Value);
+                            dbCommand.ExecuteNonQuery();
+                            Program.Log("Group deleted");
+                            
+                        }
+                        else
+                        {
+                            Program.Log("Group to be deleted doesn't exist");
+                        }
+                    }
+                    dbTransaction.Commit();
+                    Program.Log("All given existing groups deleted");
+                    code = 200;
+                    statusMessage = "Groups deleted";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    dbTransaction.Rollback();
+                    code = 400;
+                    statusMessage = "An error occurred while trying to delete groups";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                finally
+                {
+                    dbConnection.Close();
+                }
+                /*for (int i = 0; i < removedgroups.Count; i++)
                 {
                     if (GroupExists(memberID, removedgroups[i].Key, removedgroups[i].Value))
                     {
@@ -872,21 +976,36 @@ namespace MembershipRegisterServer
                     }
                 }
                 Program.Log("All given groups deleted");
-                return true;
+                return true;*/
             }
             else
             {
                 Program.Log("Member does not exist in the database");
-                return false;
+                code = 400;
+                statusMessage = "That member does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
             }
+            return status;
         }
 
         /*
          * EditGroup method modifies an entry in the teams table
          */
-        public Boolean EditGroup(String ID, KeyValuePair<string, string> oldgroup, KeyValuePair<string, string> newgroup)
+        public string[] EditGroup(String ID, KeyValuePair<string, string> oldgroup, KeyValuePair<string, string> newgroup)
         {
-            if (GroupExists(ID, oldgroup.Key, oldgroup.Value))
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+            if (GroupExists(ID, newgroup.Key, newgroup.Value))
+            {
+                Program.Log("Can't change group into duplicate of an existing group");
+                code = 400;
+                statusMessage = "Can't change group into duplicate of an existing group";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
+            }
+            else if (GroupExists(ID, oldgroup.Key, oldgroup.Value))
             {
                 dbConnection.Open();
                 dbTransaction = dbConnection.BeginTransaction();
@@ -905,13 +1024,19 @@ namespace MembershipRegisterServer
                     dbTransaction.Commit();
                     Program.Log("Group edited");
 
-                    return true;
+                    code = 200;
+                    statusMessage = "Group edited";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
                 }
                 catch (Exception e)
                 {
                     Program.Log(e.ToString());
                     dbTransaction.Rollback();
-                    return false;
+                    code = 400;
+                    statusMessage = "An error occurred while trying to edit a group";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
                 }
                 finally
                 {
@@ -921,8 +1046,12 @@ namespace MembershipRegisterServer
             else
             {
                 Program.Log("Group does not exist in the database");
-                return false;
+                code = 400;
+                statusMessage = "That group does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
             }
+            return status;
         }
 
         /*
@@ -952,7 +1081,7 @@ namespace MembershipRegisterServer
             }
             finally
             {
-                dbConnection.Close();
+                //dbConnection.Close();
             }
             return exists;
         }
