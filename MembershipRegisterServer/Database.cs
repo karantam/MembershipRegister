@@ -348,6 +348,43 @@ namespace MembershipRegisterServer
         }
 
         /*
+         * GetAllUsers method retrieves names and emails of all users.
+         */
+        public List<User> GetAllUsers()
+        {
+            String query = "SELECT userID, email, role FROM users";
+            List<User> users = new();
+            dbConnection.Open();
+            try
+            {
+                dbCommand = dbConnection.CreateCommand();
+                dbCommand.CommandText = query;
+                dbReader = dbCommand.ExecuteReader();
+                while (dbReader.Read())
+                {
+                    Console.WriteLine();
+                    User user = new User(dbReader.GetString(0), dbReader.GetString(1));
+                    if (dbReader.GetString(2) == "admin")
+                    {
+                        user.SetRole(true);
+                    }
+                    users.Add(user);
+
+                }
+
+            }
+            catch (Exception e)
+            {
+                Program.Log(e.ToString());
+            }
+            finally
+            {
+                dbConnection.Close();
+            }
+            return users;
+        }
+
+        /*
          * CheckUser method checks if the given userID and password match ones in the database
          */
         public Boolean CheckUser(String userID, String password)
@@ -429,7 +466,7 @@ namespace MembershipRegisterServer
         public Boolean IsAdmin(String userID)
         {
             // selecting and admin with the given userID from the users table
-            String userIDExists = $"SELECT userID FROM users WHERE userID = $ID AND WHERE role = $Role";
+            String userIDExists = $"SELECT userID FROM users WHERE userID = $ID AND role = $Role";
             Boolean exists = false;
             dbConnection.Open();
             try
@@ -460,7 +497,7 @@ namespace MembershipRegisterServer
         public Boolean AnotherAdminExists(String userID)
         {
             // selecting admins other than the given user from the users table
-            String userIDExists = $"SELECT userID FROM users WHERE userID != $ID AND WHERE role = $Role";
+            String userIDExists = $"SELECT userID FROM users WHERE userID != $ID AND role = $Role";
             Boolean exists = false;
             dbConnection.Open();
             try

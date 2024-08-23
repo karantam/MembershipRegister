@@ -16,6 +16,7 @@ namespace MembershipRegisterServer
 
             HandlerChooser chooser = new();
             chooser.AddHandler(new MemberRequestHandler());
+            chooser.AddHandler(new UserRequestHandler());
 
             listener.Start();
             Boolean running = true;
