@@ -362,7 +362,7 @@ namespace MembershipRegisterServer
                 dbReader = dbCommand.ExecuteReader();
                 while (dbReader.Read())
                 {
-                    Console.WriteLine();
+                    //Console.WriteLine();
                     User user = new User(dbReader.GetString(0), dbReader.GetString(1));
                     if (dbReader.GetString(2) == "admin")
                     {
@@ -520,6 +520,60 @@ namespace MembershipRegisterServer
                 dbConnection.Close();
             }
             return exists;
+        }
+
+        /*
+         * RemoveUser method removes a user from the database
+         */
+        public string[] RemoveUser(String username)
+        {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+
+            if (UserExists(username))
+            {
+                String memberdata = $"DELETE FROM users WHERE userID = $userID";
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    dbCommand.CommandText = memberdata;
+                    dbCommand.Parameters.Clear();
+                    dbCommand.Parameters.AddWithValue("$userID", username);
+                    dbCommand.ExecuteNonQuery();
+                    dbTransaction.Commit();
+                    Program.Log("User deleted");
+
+                    code = 200;
+                    statusMessage = "User deleted";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    dbTransaction.Rollback();
+                    code = 400;
+                    statusMessage = "An error occurred while trying to delete a User";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                finally
+                {
+                    dbConnection.Close();
+                }
+            }
+            else
+            {
+                Program.Log("User does not exist");
+                code = 400;
+                statusMessage = "That user does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
+            }
+            return status;
         }
 
         /*
@@ -759,7 +813,8 @@ namespace MembershipRegisterServer
 
                         teams.Add(new KeyValuePair<string, string>(dbReader2.GetString(0), dbReader2.GetString(1)));
                     }
-                    Console.WriteLine();
+                    //Console.WriteLine();
+
                     //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), dbReader.GetString(3), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
                     //people.Add(new Member(dbReader.GetString(0), dbReader.GetString(1), dbReader.GetString(2), DateTime.ParseExact(dbReader.GetString(3), "yyyyMMdd", CultureInfo.InvariantCulture), dbReader.GetString(4), dbReader.GetString(5), dbReader.GetString(6), teams));
                     if (dbReader.GetString(3) != "0")

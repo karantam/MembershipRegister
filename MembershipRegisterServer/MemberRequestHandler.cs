@@ -100,10 +100,11 @@ namespace MembershipRegisterServer
                     {
                         action = actiontoken.ToString().Trim();
                     }
-
                     // Performing the default action of creating a new member
                     if (string.IsNullOrWhiteSpace(action))
                     {
+                        Program.Log("Action");
+                        Program.Log(action);
                         // Creating a member object from the user data
                         if (jObjMember.TryGetValue("id", out JToken? idtoken) && jObjMember.TryGetValue("firstname", out JToken? firstnametoken) && jObjMember.TryGetValue("lastname", out JToken? lastnametoken)
                             && jObjMember.TryGetValue("birthdate", out JToken? birthdatetoken) && jObjMember.TryGetValue("address", out JToken? addresstoken) && jObjMember.TryGetValue("phone", out JToken? phonetoken)
@@ -181,7 +182,7 @@ namespace MembershipRegisterServer
                         }
                     }
                     // Adding groups to a member
-                    if (action == "addgroup")
+                    else if (action == "addgroup")
                     {
                         // Creating a member object from the user data
                         if (jObjMember.TryGetValue("id", out JToken? idtoken))

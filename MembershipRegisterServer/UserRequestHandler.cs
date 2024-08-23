@@ -143,6 +143,45 @@ namespace MembershipRegisterServer
                             statusMessage = "Request denied. Only admins can create new users";
                         }
                     }
+                    // Deleting the given user from the database
+                    else if (action == "delete")
+                    {
+                        if (Database.Instance.IsAdmin(identity.Name))
+                        {
+                            // Getting the username of the user to be deleted
+                            if (jObjMember.TryGetValue("username", out JToken? nametoken))
+                            {
+                                string name = nametoken.ToString().Trim();
+
+                                if (string.IsNullOrWhiteSpace(name))
+                                {
+                                    code = 400;
+                                    statusMessage = "Username of the user to be deleted was empty or null";
+                                }
+                                else if(identity.Name == name)
+                                {
+                                    code = 400;
+                                    statusMessage = "User can't delete itself";
+                                }
+                                else
+                                {
+                                    status = Database.Instance.RemoveUser(name);
+                                    code = int.Parse(status[0]);
+                                    statusMessage = status[1];
+                                }
+                            }
+                            else
+                            {
+                                code = 400;
+                                statusMessage = "No valid JSON in request body";
+                            }
+                        }
+                        else
+                        {
+                            code = 403;
+                            statusMessage = "Request denied. Only admins can delete users";
+                        }
+                    }
                     // Giving an error for an unknown action
                     else
                     {
