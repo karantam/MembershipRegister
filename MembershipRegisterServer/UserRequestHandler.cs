@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace MembershipRegisterServer
 {
@@ -222,6 +223,83 @@ namespace MembershipRegisterServer
                         {
                             code = 403;
                             statusMessage = "Request denied. Only admins can give or remove admin rights";
+                        }
+                    }
+                    // Changing the password of the given user in the database
+                    else if (action == "change password")
+                    {
+                        // Getting the username and new password of the user
+                        if (jObjMember.TryGetValue("username", out JToken? nametoken) && jObjMember.TryGetValue("password", out JToken? passwordtoken))
+                        {
+                            string name = nametoken.ToString().Trim();
+                            string password = passwordtoken.ToString().Trim();
+
+                            if (string.IsNullOrWhiteSpace(name))
+                            {
+                                code = 400;
+                                statusMessage = "Username was empty or null";
+                            }
+                            // Cheking that the password is of valid length
+                            else if (string.IsNullOrWhiteSpace(password) || password.Length < 5 || password.Length > 20)
+                            {
+                                code = 400;
+                                statusMessage = "Invalid password";
+                            }
+                            else if (isAdmin || identity.Name == name)
+                            {
+                                status = Database.Instance.ChangeUserPassword(name, password);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                            }
+                            else
+                            {
+                                code = 403;
+                                statusMessage = "Request denied. Only admins can change other users passwords";
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid JSON in request body";
+                        }
+                    }
+                    // Changing the username and email of the given user in the database
+                    else if (action == "edit user")
+                    {
+                        // Getting the username and new password of the user
+                        if (jObjMember.TryGetValue("oldusername", out JToken? oldnametoken) && jObjMember.TryGetValue("newusername", out JToken? newnametoken) && jObjMember.TryGetValue("email", out JToken? emailtoken))
+                        {
+                            string oldname = oldnametoken.ToString().Trim();
+                            string newname = newnametoken.ToString().Trim();
+                            string email = emailtoken.ToString().Trim();
+
+                            if (string.IsNullOrWhiteSpace(oldname) || string.IsNullOrWhiteSpace(newname))
+                            {
+                                code = 400;
+                                statusMessage = "Username was empty or null";
+                            }
+                            // Cheking that username, password and email are of valid length and form
+                            else if (newname.Length < 5 || newname.Length > 20 || string.IsNullOrWhiteSpace(email) || email.Length < 5 || email.Length > 50 || !email.Contains('@'))
+                            {
+                                code = 400;
+                                statusMessage = "Invalid username or email";
+                            }
+                            else if (isAdmin || identity.Name == oldname)
+                            {
+                                status = Database.Instance.EditUser(oldname, newname, email);
+                                code = int.Parse(status[0]);
+                                statusMessage = status[1];
+                            }
+                            else
+                            {
+                                code = 403;
+                                statusMessage = "Request denied. Only admins can change other users information";
+                            }
+                        }
+                        else
+                        {
+                            code = 400;
+                            statusMessage = "No valid JSON in request body";
                         }
                     }
                     // Giving an error for an unknown action

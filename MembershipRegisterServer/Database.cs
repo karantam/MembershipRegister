@@ -577,7 +577,7 @@ namespace MembershipRegisterServer
         }
 
         /*
-         * EditGroup method modifies an entry in the teams table
+         * ChangeUserRole method is used to change the role entry of an user in the users table
          */
         public string[] ChangeUserRole(String username, Boolean admin)
         {
@@ -638,6 +638,131 @@ namespace MembershipRegisterServer
                     statusMessage = "Can't change the last admin into a normal user";
                     status[0] = code.ToString();
                     status[1] = statusMessage;
+                }
+            }
+            else
+            {
+                Program.Log("User does not exist");
+                code = 400;
+                statusMessage = "That user does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
+            }
+            return status;
+        }
+
+        /*
+         * ChangeUserPassword method is used to change the password of an user in the users table
+         */
+        public string[] ChangeUserPassword(String username, String password)
+        {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+
+            if (UserExists(username))
+            {
+                byte[] saltbytes = new byte[24];
+                saltbytes = RandomNumberGenerator.GetBytes(24);
+                String salt = Convert.ToBase64String(saltbytes);
+                var byteResult = new Rfc2898DeriveBytes(password, Encoding.UTF8.GetBytes(salt), 10000, HashAlgorithmName.SHA512);
+                String hashedpass = Convert.ToBase64String(byteResult.GetBytes(24));
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    String teamdata = $"UPDATE users SET password = $Password, salt = $Salt WHERE userID = $userID";
+                    dbCommand.CommandText = teamdata;
+                    dbCommand.Parameters.Clear();
+                    dbCommand.Parameters.AddWithValue("$userID", username);
+                    dbCommand.Parameters.AddWithValue("$Salt", salt);
+                    dbCommand.Parameters.AddWithValue("$Password", hashedpass);
+                    dbCommand.ExecuteNonQuery();
+                    dbTransaction.Commit();
+                    Program.Log("Password changed");
+
+                    code = 200;
+                    statusMessage = "Password changed";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    dbTransaction.Rollback();
+                    code = 400;
+                    statusMessage = "An error occurred while trying to change password";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                finally
+                {
+                    dbConnection.Close();
+                }
+            }
+            else
+            {
+                Program.Log("User does not exist");
+                code = 400;
+                statusMessage = "That user does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
+            }
+            return status;
+        }
+
+        /*
+         * EditUser method is used to change the username and email of an user in the users table
+         */
+        public string[] EditUser(String oldusername, String newusername, String email)
+        {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+            //Making sure that the username is not changed to one that is already in use
+            if ((oldusername != newusername) && UserExists(newusername))
+            {
+                Program.Log("Couldn't change username. The new username is already in use");
+                code = 400;
+                statusMessage = "Couldn't change username. The new username is already in use";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
+            }
+            else if (UserExists(oldusername))
+            {
+                dbConnection.Open();
+                dbTransaction = dbConnection.BeginTransaction();
+                dbCommand.Transaction = dbTransaction;
+                try
+                {
+                    String teamdata = $"UPDATE users SET userID = $newuserID, email = $email WHERE userID = $olduserID";
+                    dbCommand.CommandText = teamdata;
+                    dbCommand.Parameters.Clear();
+                    dbCommand.Parameters.AddWithValue("$olduserID", oldusername);
+                    dbCommand.Parameters.AddWithValue("$newuserID", newusername);
+                    dbCommand.Parameters.AddWithValue("$email", email);
+                    dbCommand.ExecuteNonQuery();
+                    dbTransaction.Commit();
+                    Program.Log("User updated");
+
+                    code = 200;
+                    statusMessage = "User updated";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                catch (Exception e)
+                {
+                    Program.Log(e.ToString());
+                    dbTransaction.Rollback();
+                    code = 400;
+                    statusMessage = "An error occurred while trying to edit user";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+                finally
+                {
+                    dbConnection.Close();
                 }
             }
             else
