@@ -97,11 +97,13 @@ namespace MembershipRegisterServer
                     {
                         action = actiontoken.ToString().Trim();
                     }
+                    // Cheking if the request came from an admin an saving that information to the isDmin boolean
+                    Boolean isAdmin = Database.Instance.IsAdmin(identity.Name);
 
                     // Performing the default action of creating a new member
                     if (string.IsNullOrWhiteSpace(action))
                     {
-                        if (Database.Instance.IsAdmin(identity.Name))
+                        if (isAdmin)
                         {
                             // Creating an user object from the user data
                             if(jObjMember.TryGetValue("username", out JToken? nametoken) && jObjMember.TryGetValue("password", out JToken? passwordtoken) && jObjMember.TryGetValue("email", out JToken? emailtoken) 
@@ -146,7 +148,7 @@ namespace MembershipRegisterServer
                     // Deleting the given user from the database
                     else if (action == "delete")
                     {
-                        if (Database.Instance.IsAdmin(identity.Name))
+                        if (isAdmin)
                         {
                             // Getting the username of the user to be deleted
                             if (jObjMember.TryGetValue("username", out JToken? nametoken))
@@ -180,6 +182,46 @@ namespace MembershipRegisterServer
                         {
                             code = 403;
                             statusMessage = "Request denied. Only admins can delete users";
+                        }
+                    }
+                    // Changing the role(admin or user) of the given user in the database
+                    else if (action == "change role")
+                    {
+                        if (isAdmin)
+                        {
+                            // Getting the username and new role of the user
+                            if (jObjMember.TryGetValue("username", out JToken? nametoken) && jObjMember.TryGetValue("role", out JToken? roletoken))
+                            {
+                                string name = nametoken.ToString().Trim();
+                                string role = roletoken.ToString().Trim();
+                                Boolean admin = false;
+                                if (role == "admin")
+                                {
+                                    admin = true;
+                                }
+
+                                if (string.IsNullOrWhiteSpace(name))
+                                {
+                                    code = 400;
+                                    statusMessage = "Username was empty or null";
+                                }
+                                else
+                                {
+                                    status = Database.Instance.ChangeUserRole(name, admin);
+                                    code = int.Parse(status[0]);
+                                    statusMessage = status[1];
+                                }
+                            }
+                            else
+                            {
+                                code = 400;
+                                statusMessage = "No valid JSON in request body";
+                            }
+                        }
+                        else
+                        {
+                            code = 403;
+                            statusMessage = "Request denied. Only admins can give or remove admin rights";
                         }
                     }
                     // Giving an error for an unknown action

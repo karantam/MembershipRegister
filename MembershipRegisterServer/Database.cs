@@ -577,6 +577,81 @@ namespace MembershipRegisterServer
         }
 
         /*
+         * EditGroup method modifies an entry in the teams table
+         */
+        public string[] ChangeUserRole(String username, Boolean admin)
+        {
+            string[] status = new string[2];
+            int code;
+            string statusMessage;
+            string role;
+            if (admin)
+            {
+                role = "admin";
+            }
+            else
+            {
+                role = "user";
+            }
+
+            if (UserExists(username))
+            {
+                if (role == "user" && AnotherAdminExists(username))
+                {
+                    dbConnection.Open();
+                    dbTransaction = dbConnection.BeginTransaction();
+                    dbCommand.Transaction = dbTransaction;
+                    try
+                    {
+                        String teamdata = $"UPDATE users SET role = $NewRole WHERE userID = $userID";
+                        dbCommand.CommandText = teamdata;
+                        dbCommand.Parameters.Clear();
+                        dbCommand.Parameters.AddWithValue("$userID", username);
+                        dbCommand.Parameters.AddWithValue("$NewRole", role);
+                        dbCommand.ExecuteNonQuery();
+                        dbTransaction.Commit();
+                        Program.Log("User's role changed");
+
+                        code = 200;
+                        statusMessage = "User's role changed";
+                        status[0] = code.ToString();
+                        status[1] = statusMessage;
+                    }
+                    catch (Exception e)
+                    {
+                        Program.Log(e.ToString());
+                        dbTransaction.Rollback();
+                        code = 400;
+                        statusMessage = "An error occurred while trying to give or remove admin rights";
+                        status[0] = code.ToString();
+                        status[1] = statusMessage;
+                    }
+                    finally
+                    {
+                        dbConnection.Close();
+                    }
+                }
+                else
+                {
+                    Program.Log("Can't change the last admin into a normal user");
+                    code = 400;
+                    statusMessage = "Can't change the last admin into a normal user";
+                    status[0] = code.ToString();
+                    status[1] = statusMessage;
+                }
+            }
+            else
+            {
+                Program.Log("User does not exist");
+                code = 400;
+                statusMessage = "That user does not exist";
+                status[0] = code.ToString();
+                status[1] = statusMessage;
+            }
+            return status;
+        }
+
+        /*
          * CreateMember method saves a new member into the database
          */
         public String[] CreateMember(Member member)
